@@ -9,6 +9,8 @@ name: CSB tiles
 # on any published release) is not triggered.
 
 on:
+  push:
+    branches: [test-csb-workflow]
   schedule:
     # Weekly, matching how often NOAA says new CSB data is added.
     - cron: "0 5 * * 1"
