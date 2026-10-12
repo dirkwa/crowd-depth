@@ -1,0 +1,12 @@
+[
+  {
+    "id": "fiji",
+    "name": "Fiji",
+    "bbox": [176, -20, -178, -15]
+  },
+  {
+    "id": "chesapeake-bay",
+    "name": "Chesapeake Bay",
+    "bbox": [-77.5, 36.8, -75.5, 39.7]
+  }
+]

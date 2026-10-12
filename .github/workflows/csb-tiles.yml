@@ -1,0 +1,172 @@
+name: CSB tiles
+
+# Builds one MBTiles per region in packages/tiles/regions.json from NOAA's
+# public crowdsourced bathymetry archive and publishes them on the rolling
+# `csb-tiles` release, so each file keeps a stable download URL.
+#
+# The release is created with GITHUB_TOKEN, and events made with that token do
+# not start other workflows, so release.yml (which publishes the plugin to npm
+# on any published release) is not triggered.
+
+on:
+  schedule:
+    # Weekly, matching how often NOAA says new CSB data is added.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      region:
+        description: "Region id from packages/tiles/regions.json (empty for all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: csb-tiles
+  cancel-in-progress: false
+
+jobs:
+  regions:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: pick
+        env:
+          REGION: ${{ github.event.inputs.region }}
+        run: |
+          if [ -n "$REGION" ]; then
+            matrix=$(jq -c --arg id "$REGION" '[.[] | select(.id == $id)]' packages/tiles/regions.json)
+          else
+            matrix=$(jq -c '.' packages/tiles/regions.json)
+          fi
+          if [ "$matrix" = "[]" ]; then
+            echo "No region matches '$REGION'" >&2
+            exit 1
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: regions
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        region: ${{ fromJson(needs.regions.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install tippecanoe and GDAL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tippecanoe gdal-bin python3-gdal
+          tippecanoe --version
+          gdalinfo --version
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Build ${{ matrix.region.name }}
+        env:
+          ID: ${{ matrix.region.id }}
+          NAME: ${{ matrix.region.name }}
+          BBOX: ${{ join(matrix.region.bbox, ',') }}
+          # A busy region holds millions of cells; the runner has the memory, Node's default heap does not.
+          NODE_OPTIONS: --max-old-space-size=12288
+        run: |
+          mkdir -p out
+          packages/tiles/bin/csb-tiles \
+            --bbox="$BBOX" \
+            --name "$NAME crowdsourced depth" \
+            --out "out/csb-$ID.mbtiles" \
+            --concurrency 16 \
+            2> >(grep -v '^skipped ' >&2)
+          ls -lh out
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: csb-${{ matrix.region.id }}
+          path: out/
+          retention-days: 3
+
+  release:
+    needs: build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v5
+        with:
+          path: out
+          pattern: csb-*
+          merge-multiple: true
+
+      - name: Write catalog.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          shopt -s nullglob
+          reports=(out/csb-*.mbtiles.json)
+          if [ ${#reports[@]} -eq 0 ]; then
+            echo "No region built" >&2
+            exit 1
+          fi
+          # A run for one region must keep the other regions' entries.
+          gh release download csb-tiles -p catalog.json -O previous.json 2> /dev/null \
+            || echo '{"files":[]}' > previous.json
+          for report in "${reports[@]}"; do
+            id=$(basename "$report" .mbtiles.json)
+            id=${id#csb-}
+            jq --arg id "$id" --arg repo "$REPO" \
+              --slurpfile regions packages/tiles/regions.json \
+              '($regions[0][] | select(.id == $id)) as $region
+              | {
+                  id: $id,
+                  name: ($region.name + " crowdsourced depth"),
+                  format: "vector-mbtiles",
+                  bounds: .bbox,
+                  minzoom: 6,
+                  maxzoom: 14,
+                  url: ("https://github.com/" + $repo + "/releases/download/csb-tiles/csb-" + $id + ".mbtiles"),
+                  soundings,
+                  cells,
+                  newestArrival
+                }' "$report"
+          done | jq -s \
+            --arg generated "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --slurpfile previous previous.json \
+            '(map(.id)) as $built
+            | {
+                generated: $generated,
+                source: "IHO DCDB crowdsourced bathymetry, hosted by NOAA NCEI",
+                license: "CC0 1.0 (source data)",
+                attribution: "Crowdsourced bathymetry: IHO Data Centre for Digital Bathymetry, hosted by NOAA NCEI (CC0). Not for navigation.",
+                files: ([$previous[0].files[] | select(.id as $id | $built | index($id) | not)] + .)
+                  | sort_by(.id)
+              }' > out/catalog.json
+          cat out/catalog.json
+
+      - name: Publish to the csb-tiles release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view csb-tiles > /dev/null 2>&1; then
+            gh release create csb-tiles --latest=false \
+              --title "Crowdsourced depth tiles" \
+              --notes "Regional MBTiles of crowd-sourced soundings from the IHO DCDB archive hosted by NOAA NCEI (CC0), rebuilt weekly. Raw soundings binned by cell: not reduced to a chart datum, not corrected for tide, not quality-checked. Not for navigation."
+          fi
+          gh release upload csb-tiles out/*.mbtiles out/catalog.json --clobber

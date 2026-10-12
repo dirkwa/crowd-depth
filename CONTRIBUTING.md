@@ -5,14 +5,15 @@ organized, how to develop and test each piece, and how releases work.
 
 ## Repository layout
 
-This is an npm workspaces monorepo with two packages:
+This is an npm workspaces monorepo with three packages:
 
 ```
 packages/
   signalk-plugin/   # "crowd-depth" on npm — the Signal K plugin
   api/              # "crowd-depth-api" — the trusted node API (Cloudflare Worker, not published)
+  tiles/            # "crowd-depth-tiles" — regional MBTiles from NOAA's public CSB archive (not published)
 docs/               # CSB reference material (schemas, IHO/NOAA guidance PDFs)
-.github/workflows/  # CI (test.yml) and npm publishing (release.yml)
+.github/workflows/  # CI (test.yml), npm publishing (release.yml), weekly tiles (csb-tiles.yml)
 ```
 
 ### `packages/signalk-plugin` (npm: `crowd-depth`)

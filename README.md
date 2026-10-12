@@ -6,6 +6,7 @@ Collect and share depth data from your marine vessel with crowd-sourced bathymet
 
 - [Signal K Plugin](packages/signalk-plugin/README.md) – collects your depth + position and periodically reports to the API.
 - [API](packages/api/README.md) – a minimal web service for receiving bathymetry reports, storing them, and forwarding them to NOAA.
+- [Tiles](packages/tiles/README.md) – builds regional MBTiles of the published crowd-sourced soundings for offline charts.
 
 ## Frequently Asked Questions
 

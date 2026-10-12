@@ -1,0 +1,15 @@
+{
+  "name": "crowd-depth-tiles",
+  "private": true,
+  "description": "Builds regional MBTiles of crowd-sourced soundings from NOAA's public CSB archive.",
+  "type": "module",
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "csb-tiles": "bin/csb-tiles"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest"
+  }
+}
