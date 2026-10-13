@@ -143,6 +143,9 @@ jobs:
                   maxzoom: 14,
                   url: ("https://github.com/" + $repo + "/releases/download/csb-tiles/csb-" + $id + ".mbtiles"),
                   soundings,
+                  tided,
+                  verticalDatum,
+                  normalized,
                   cells,
                   newestArrival
                 }' "$report"
@@ -154,7 +157,7 @@ jobs:
                 generated: $generated,
                 source: "IHO DCDB crowdsourced bathymetry, hosted by NOAA NCEI",
                 license: "CC0 1.0 (source data)",
-                attribution: "Crowdsourced bathymetry: IHO Data Centre for Digital Bathymetry, hosted by NOAA NCEI (CC0). Not for navigation.",
+                attribution: "Crowdsourced bathymetry: IHO Data Centre for Digital Bathymetry, hosted by NOAA NCEI (CC0). Tide predictions: Slackwater, from TICON-4 (CC BY 4.0) and NOAA station data. Not for navigation.",
                 files: ([$previous[0].files[] | select(.id as $id | $built | index($id) | not)] + .)
                   | sort_by(.id)
               }' > out/catalog.json
@@ -167,6 +170,6 @@ jobs:
           if ! gh release view csb-tiles > /dev/null 2>&1; then
             gh release create csb-tiles --latest=false \
               --title "Crowdsourced depth tiles" \
-              --notes "Regional MBTiles of crowd-sourced soundings from the IHO DCDB archive hosted by NOAA NCEI (CC0), rebuilt weekly. Raw soundings binned by cell: not reduced to a chart datum, not corrected for tide, not quality-checked. Not for navigation."
+              --notes "Regional MBTiles of crowd-sourced soundings from the IHO DCDB archive hosted by NOAA NCEI (CC0), rebuilt weekly. Soundings binned by cell and, near a tide station, reduced to LAT by a predicted tide. Sensor offsets unknown, not quality-checked. Not for navigation."
           fi
           gh release upload csb-tiles out/*.mbtiles out/catalog.json --clobber

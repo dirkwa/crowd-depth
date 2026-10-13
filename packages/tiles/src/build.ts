@@ -6,15 +6,18 @@ import { join } from "node:path";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 import { DatabaseSync } from "node:sqlite";
-import { type BBox, splitAntimeridian } from "./bbox.js";
+import { type BBox, contains, splitAntimeridian } from "./bbox.js";
 import { type CsbFile, listFiles, readSoundings } from "./archive.js";
 import { NO_DATA, SoundingGrid, toSounding } from "./grid.js";
+import { TIDE_DATUM, type TideReducer, createTideReducer } from "./tide.js";
 
 export const ATTRIBUTION =
   "Crowdsourced bathymetry: IHO Data Centre for Digital Bathymetry, hosted by NOAA NCEI (CC0). Not for navigation.";
 
 export const DISCLAIMER =
   "Raw crowd-sourced soundings binned by cell. Depths are not reduced to a chart datum or corrected for tide, sensor offsets vary by vessel, and soundings are not quality-checked. Not for navigation.";
+
+export const TIDE_DISCLAIMER = `Crowd-sourced soundings binned by cell. Where a tide station is near, depths are reduced to ${TIDE_DATUM} by a predicted tide, not a measured one; elsewhere they are as sounded. Sensor offsets vary by vessel and are not known, and soundings are not quality-checked. Not for navigation.`;
 
 /**
  * Depth area and contour boundaries in metres: fine where small boats work,
@@ -35,6 +38,11 @@ export interface BuildOptions {
    */
   fillCells: number;
   concurrency: number;
+  /**
+   * Reduce soundings to the chart datum with a predicted tide from stations
+   * within this many kilometres. Omit to keep depths as sounded.
+   */
+  tideStationKm?: number;
   maxFiles?: number;
   log?: (message: string) => void;
   fetch?: typeof fetch;
@@ -54,6 +62,20 @@ export interface BuildReport {
   submittedBytes: number;
   soundings: number;
   rejected: number;
+  /** Soundings reduced to `verticalDatum`; the rest are as sounded. */
+  tided: number;
+  verticalDatum: string | undefined;
+  /**
+   * Whether every sounding is referenced to the water surface with the
+   * vessel's sensor offsets applied. Never for CSB: the archive does not say.
+   */
+  normalized: boolean;
+  tideStations: {
+    id: string;
+    name: string;
+    source: string;
+    attribution: string;
+  }[];
   cells: number;
   newestArrival: string | undefined;
   seconds: number;
@@ -91,9 +113,15 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
   );
 
   // A raster cannot wrap round the globe, so each side of the antimeridian gets its own grid.
-  const grids = splitAntimeridian(options.bbox).map(
+  const sides = splitAntimeridian(options.bbox);
+  const grids = sides.map(
     (bbox) => new SoundingGrid({ bbox, cellMeters: options.cellMeters }),
   );
+  const tide =
+    options.tideStationKm === undefined
+      ? undefined
+      : createTideReducer({ maxStationKm: options.tideStationKm });
+  let tided = 0;
   let failedFiles = 0;
   let failedBytes = 0;
   let partialFiles = 0;
@@ -103,6 +131,11 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
     try {
       for await (const s of readSoundings(file, doFetch)) {
         read++;
+        // A file's voyage often runs far outside the box; predicting its
+        // tide there would only be thrown away.
+        if (!sides.some((side) => contains(side, s.lon, s.lat))) continue;
+        const correction = tide?.at(s.lon, s.lat, s.time);
+        if (correction) tided++;
         for (const grid of grids) {
           grid.add(
             s.lon,
@@ -110,6 +143,7 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
             s.depth,
             `${s.provider}/${s.platform}`,
             s.time,
+            correction?.height,
           );
         }
       }
@@ -171,9 +205,9 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
       "--name",
       options.name,
       "--description",
-      DISCLAIMER,
+      tide ? TIDE_DISCLAIMER : DISCLAIMER,
       "--attribution",
-      ATTRIBUTION,
+      tide ? tideAttribution(tide.stations) : ATTRIBUTION,
       "--minimum-zoom",
       "6",
       "--maximum-zoom",
@@ -190,6 +224,10 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
       "--quiet",
     ]);
     markAsS57(options.out);
+    writeMetadata(options.out, {
+      normalized: "false",
+      vertical_datum: tide ? TIDE_DATUM : "none",
+    });
   } finally {
     await rm(work, { recursive: true, force: true });
   }
@@ -204,6 +242,10 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
     submittedBytes,
     soundings: totals.seen,
     rejected: totals.rejected,
+    tided,
+    verticalDatum: tide ? TIDE_DATUM : undefined,
+    normalized: false,
+    tideStations: [...(tide?.stations ?? [])].map(([id, s]) => ({ id, ...s })),
     cells: totals.cells,
     newestArrival: newest ? new Date(newest).toISOString() : undefined,
     seconds: Math.round((Date.now() - started) / 1000),
@@ -294,6 +336,30 @@ function markAsS57(mbtiles: string) {
 function* cellSoundings(grids: SoundingGrid[]): Generator<string> {
   for (const grid of grids) {
     for (const cell of grid.summaries()) yield toSounding(cell);
+  }
+}
+
+/** Station data is mostly CC BY, so the sources behind the predictions are credited. */
+function tideAttribution(stations: TideReducer["stations"]): string {
+  const sources = [...new Set([...stations.values()].map((s) => s.source))];
+  return sources.length
+    ? `${ATTRIBUTION} Tide predictions: Slackwater, from ${sources.join(", ")} station data.`
+    : ATTRIBUTION;
+}
+
+/**
+ * Quality flags a chart provider or plotter can filter on, so tiles from
+ * boats that record corrected depths can later be told apart from these.
+ */
+function writeMetadata(mbtiles: string, values: Record<string, string>) {
+  const db = new DatabaseSync(mbtiles);
+  try {
+    const insert = db.prepare(
+      "INSERT OR REPLACE INTO metadata (name, value) VALUES (?, ?)",
+    );
+    for (const [name, value] of Object.entries(values)) insert.run(name, value);
+  } finally {
+    db.close();
   }
 }
 

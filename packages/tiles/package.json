@@ -11,5 +11,8 @@
   "scripts": {
     "build": "tsc -b",
     "test": "vitest"
+  },
+  "dependencies": {
+    "slackwater": "^1.0.0-beta.3"
   }
 }

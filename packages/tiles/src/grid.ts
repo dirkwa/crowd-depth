@@ -32,6 +32,8 @@ export interface CellSummary {
   max: number;
   mean: number;
   count: number;
+  /** Soundings reduced to the chart datum by a predicted tide; the rest are as sounded. */
+  tided: number;
   /** Distinct vessels that sounded the cell, up to MAX_VESSELS; one alone is weaker evidence. */
   vessels: number;
   /** When the cell was last sounded, as an ISO date. */
@@ -72,6 +74,7 @@ export class SoundingGrid {
   private readonly index = new Map<number, number>();
   private keys = new Float64Array(0);
   private count = new Uint32Array(0);
+  private tided = new Uint32Array(0);
   private min = new Float32Array(0);
   private max = new Float32Array(0);
   private sum = new Float64Array(0);
@@ -112,6 +115,7 @@ export class SoundingGrid {
     };
     this.keys = resize(this.keys, (n) => new Float64Array(n));
     this.count = resize(this.count, (n) => new Uint32Array(n));
+    this.tided = resize(this.tided, (n) => new Uint32Array(n));
     this.min = resize(this.min, (n) => new Float32Array(n));
     this.max = resize(this.max, (n) => new Float32Array(n));
     this.sum = resize(this.sum, (n) => new Float64Array(n));
@@ -133,13 +137,27 @@ export class SoundingGrid {
     return h;
   }
 
-  add(lon: number, lat: number, depth: number, platform: string, time: string) {
+  /**
+   * `tide` is the predicted water level above the chart datum when the
+   * sounding was taken, subtracted so the cell holds a charted depth.
+   */
+  add(
+    lon: number,
+    lat: number,
+    sounded: number,
+    platform: string,
+    time: string,
+    tide?: number,
+  ) {
     if (!contains(this.options.bbox, lon, lat)) return;
     this.seen++;
-    if (!(depth > 0) || depth > MAX_DEPTH) {
+    if (!(sounded > 0) || sounded > MAX_DEPTH) {
       this.rejected++;
       return;
     }
+    // Ground that dries at the datum reads as zero: a sounder cannot measure
+    // a drying height, and zero is the safe side of one.
+    const depth = tide === undefined ? sounded : Math.max(sounded - tide, 0);
     const [west, , , north] = this.options.bbox;
     // Row 0 is the northern edge, as rasters are laid out.
     const row = Math.min(
@@ -162,6 +180,7 @@ export class SoundingGrid {
       this.max[i] = depth;
     }
     const n = ++this.count[i]!;
+    if (tide !== undefined) this.tided[i]!++;
     this.sum[i]! += depth;
     if (depth < this.min[i]!) this.min[i] = depth;
     if (depth > this.max[i]!) this.max[i] = depth;
@@ -215,6 +234,7 @@ export class SoundingGrid {
         max: this.max[i]!,
         mean: this.sum[i]! / this.count[i]!,
         count: this.count[i]!,
+        tided: this.tided[i]!,
         vessels,
         last: this.last[i]
           ? new Date(this.last[i]!).toISOString().slice(0, 10)
@@ -400,6 +420,7 @@ export function toSounding(cell: CellSummary): string {
       min: round(cell.min),
       max: round(cell.max),
       count: cell.count,
+      tided: cell.tided,
       vessels: cell.vessels,
       last: cell.last,
     },

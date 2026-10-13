@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 import { parseBBox } from "./bbox.js";
 import { build } from "./build.js";
+import { DEFAULT_MAX_STATION_KM } from "./tide.js";
 
 const USAGE = `Usage: csb-tiles --bbox west,south,east,north --out region.mbtiles [options]
 
@@ -8,6 +9,8 @@ const USAGE = `Usage: csb-tiles --bbox west,south,east,north --out region.mbtile
   --cell <metres>       Cell size (default: 30)
   --fill <cells>        Widest gap filled between soundings (default: 1)
   --concurrency <n>     Parallel downloads (default: 8)
+  --tide-km <km>        Reduce depths to LAT with a predicted tide from stations
+                        this close (default: 50, 0 keeps depths as sounded)
   --max-files <n>       Only the newest n files, for trial runs
 `;
 
@@ -39,6 +42,7 @@ export async function main(argv: string[]) {
       cell: { type: "string", default: "30" },
       fill: { type: "string", default: "1" },
       concurrency: { type: "string", default: "8" },
+      "tide-km": { type: "string", default: String(DEFAULT_MAX_STATION_KM) },
       "max-files": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
@@ -48,6 +52,7 @@ export async function main(argv: string[]) {
     process.exitCode = values.help ? 0 : 1;
     return;
   }
+  const tideKm = numberOption("tide-km", values["tide-km"], { min: 0 });
   const report = await build({
     bbox: parseBBox(values.bbox),
     out: values.out,
@@ -58,6 +63,7 @@ export async function main(argv: string[]) {
       min: 1,
       integer: true,
     }),
+    ...(tideKm > 0 ? { tideStationKm: tideKm } : {}),
     ...(values["max-files"] !== undefined
       ? {
           maxFiles: numberOption("max-files", values["max-files"], {

@@ -54,6 +54,27 @@ describe("SoundingGrid", () => {
     expect(grid.stats).toEqual({ seen: 3, rejected: 3, cells: 0 });
   });
 
+  test("reduces soundings by the tide and counts them", () => {
+    const grid = new SoundingGrid({
+      bbox: [177, -18, 178, -17],
+      cellMeters: 100,
+    });
+    grid.add(177.5, -17.5, 5, "a", "2026-01-01T00:00:00Z", 1.5);
+    grid.add(177.5, -17.5, 4, "a", "2026-01-01T00:01:00Z");
+    const [cell] = [...grid.summaries()];
+    expect(cell).toMatchObject({ min: 3.5, max: 4, count: 2, tided: 1 });
+  });
+
+  test("reads ground that dries at the datum as zero, not as a rejected sounding", () => {
+    const grid = new SoundingGrid({
+      bbox: [177, -18, 178, -17],
+      cellMeters: 100,
+    });
+    grid.add(177.5, -17.5, 0.8, "a", "2026-01-01T00:00:00Z", 1.2);
+    expect(grid.stats.rejected).toBe(0);
+    expect([...grid.summaries()][0]).toMatchObject({ depth: 0, tided: 1 });
+  });
+
   test("keeps a sounding on the box's eastern edge inside the grid", () => {
     const grid = new SoundingGrid({
       bbox: [179, -18, 180, -17],
