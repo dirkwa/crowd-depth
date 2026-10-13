@@ -223,21 +223,14 @@ export class SoundingGrid {
     }
   }
 
-  /**
-   * Writes the cell medians as a float32 ENVI raster, a raw format GDAL reads
-   * without a GDAL binding here. Rows stream out one at a time so a large
-   * region never needs the whole raster in memory.
-   */
-  async writeRaster(path: string): Promise<void> {
+  /** The cell medians row by row from the north, NO_DATA where nobody sounded. */
+  private *rows(): Generator<Float32Array> {
     const order = Array.from({ length: this.size }, (_, i) => i).sort(
       (a, b) => this.keys[a]! - this.keys[b]!,
     );
-
-    const stream = createWriteStream(path);
-    const line = new Float32Array(this.width);
     let next = 0;
     for (let row = 0; row < this.height; row++) {
-      line.fill(NO_DATA);
+      const line = new Float32Array(this.width).fill(NO_DATA);
       while (next < order.length) {
         const i = order[next]!;
         const key = this.keys[i]!;
@@ -245,8 +238,20 @@ export class SoundingGrid {
         line[key % this.width] = this.median(i);
         next++;
       }
-      if (!stream.write(Buffer.from(line.buffer.slice(0))))
-        await once(stream, "drain");
+      yield line;
+    }
+  }
+
+  /**
+   * Writes the cell medians as a float32 ENVI raster, a raw format GDAL reads
+   * without a GDAL binding here, with holes up to `fillCells` wide filled (see
+   * fillHoles). Rows stream out one at a time so a large region never needs
+   * the whole raster in memory.
+   */
+  async writeRaster(path: string, fillCells = 0): Promise<void> {
+    const stream = createWriteStream(path);
+    for (const line of fillHoles(this.rows(), this.width, fillCells)) {
+      if (!stream.write(Buffer.from(line.buffer))) await once(stream, "drain");
     }
     stream.end();
     await once(stream, "finish");
@@ -270,6 +275,97 @@ export class SoundingGrid {
       ].join("\n"),
     );
   }
+}
+
+/** Along a row, down a column, and both diagonals. */
+const AXES = [
+  [0, 1],
+  [1, 0],
+  [1, 1],
+  [1, -1],
+] as const;
+
+/**
+ * Fills a raster's holes along a track: an empty cell gets a depth only when
+ * soundings bracket it on opposite sides along one axis, with no more than
+ * `maxGap` empty cells between them. The depth is interpolated between the
+ * two, and where several axes bracket a cell the shallowest wins.
+ *
+ * A cell with soundings on one side only is the edge of what was measured,
+ * and stays empty however close the soundings are: growing a track outwards
+ * would shade water nobody sounded, which can hide a reef. Only measured cells
+ * are used as anchors, so filled cells never chain into wider gaps.
+ *
+ * Rows stream through a window of 2 * maxGap + 1, so the raster is never held
+ * whole.
+ */
+export function* fillHoles(
+  rows: Iterable<Float32Array>,
+  width: number,
+  maxGap: number,
+): Generator<Float32Array> {
+  if (!(maxGap >= 1)) {
+    yield* rows;
+    return;
+  }
+  const source = rows[Symbol.iterator]();
+  const window: Float32Array[] = [];
+  let first = 0;
+  let exhausted = false;
+
+  const value = (row: number, col: number): number | undefined => {
+    if (col < 0 || col >= width || row < first) return undefined;
+    return window[row - first]?.[col];
+  };
+
+  for (let row = 0; ; row++) {
+    while (!exhausted && first + window.length <= row + maxGap) {
+      const next = source.next();
+      if (next.done) exhausted = true;
+      else window.push(next.value);
+    }
+    const line = window[row - first];
+    if (!line) return;
+
+    const out = line.slice();
+    for (let col = 0; col < width; col++) {
+      if (line[col] !== NO_DATA) continue;
+      let best = Infinity;
+      for (const [dr, dc] of AXES) {
+        const ahead = nearest(value, row, col, dr, dc, maxGap);
+        if (!ahead) continue;
+        const behind = nearest(value, row, col, -dr, -dc, maxGap);
+        if (!behind || ahead.steps + behind.steps - 1 > maxGap) continue;
+        const depth =
+          (ahead.depth * behind.steps + behind.depth * ahead.steps) /
+          (ahead.steps + behind.steps);
+        if (depth < best) best = depth;
+      }
+      if (best < Infinity) out[col] = best;
+    }
+    yield out;
+
+    while (first < row + 1 - maxGap) {
+      window.shift();
+      first++;
+    }
+  }
+}
+
+function nearest(
+  value: (row: number, col: number) => number | undefined,
+  row: number,
+  col: number,
+  dr: number,
+  dc: number,
+  maxSteps: number,
+): { steps: number; depth: number } | undefined {
+  for (let steps = 1; steps <= maxSteps; steps++) {
+    const depth = value(row + steps * dr, col + steps * dc);
+    if (depth === undefined) return undefined;
+    if (depth !== NO_DATA) return { steps, depth };
+  }
+  return undefined;
 }
 
 export function median(values: number[]): number {

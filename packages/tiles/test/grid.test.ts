@@ -2,7 +2,13 @@ import { describe, test, expect } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { median, NO_DATA, SoundingGrid, toSounding } from "../src/grid.js";
+import {
+  fillHoles,
+  median,
+  NO_DATA,
+  SoundingGrid,
+  toSounding,
+} from "../src/grid.js";
 
 describe("SoundingGrid", () => {
   test("bins nearby soundings into one cell", () => {
@@ -117,6 +123,77 @@ test("grows past its initial capacity", () => {
   for (let i = 0; i < 3000; i++) grid.add((i + 0.5) / 3000, 0.5, 10, "a", "t");
   expect(grid.stats.cells).toBeGreaterThan(1024);
   expect([...grid.summaries()].every((c) => c.depth === 10)).toBe(true);
+});
+
+describe("fillHoles", () => {
+  const _ = NO_DATA;
+  const fill = (rows: number[][], maxGap: number) =>
+    [
+      ...fillHoles(
+        rows.map((r) => Float32Array.from(r)),
+        rows[0]!.length,
+        maxGap,
+      ),
+    ].map((r) => [...r]);
+
+  test("fills a one-cell hole along a track", () => {
+    expect(fill([[4, _, 6]], 1)).toEqual([[4, 5, 6]]);
+    expect(fill([[4], [_], [8]], 1)).toEqual([[4], [6], [8]]);
+  });
+
+  test("never grows a track past its edges", () => {
+    const rows = [
+      [_, _, _, _],
+      [_, 3, 3, _],
+      [_, _, _, _],
+    ];
+    expect(fill(rows, 1)).toEqual(rows);
+    expect(fill(rows, 3)).toEqual(rows);
+  });
+
+  test("leaves the water between two parallel tracks empty when wider than the limit", () => {
+    const rows = [[2], [_], [_], [9]];
+    expect(fill(rows, 1)).toEqual(rows);
+    expect(fill(rows, 2)).toEqual(
+      [[2], [2 + 7 / 3], [2 + 14 / 3], [9]].map((r) =>
+        r.map((v) => Math.fround(v)),
+      ),
+    );
+  });
+
+  test("bridges a diagonal track", () => {
+    expect(
+      fill(
+        [
+          [5, _, _],
+          [_, _, _],
+          [_, _, 7],
+        ],
+        1,
+      ),
+    ).toEqual([
+      [5, _, _],
+      [_, 6, _],
+      [_, _, 7],
+    ]);
+  });
+
+  test("takes the shallowest where axes disagree", () => {
+    expect(
+      fill(
+        [
+          [_, 2, _],
+          [10, _, 20],
+          [_, 4, _],
+        ],
+        1,
+      )[1],
+    ).toEqual([10, 3, 20]);
+  });
+
+  test("passes rows through untouched with no gap allowed", () => {
+    expect(fill([[4, _, 6]], 0)).toEqual([[4, _, 6]]);
+  });
 });
 
 describe("median", () => {

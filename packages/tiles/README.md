@@ -18,8 +18,10 @@ which is where the Signal K plugin's reports end up.
    region are binned into cells (30 m by default), keeping per cell the median,
    minimum and maximum depth, the number of soundings, the number of distinct
    vessels, and when it was last sounded.
-3. The cell medians become a raster. GDAL fills only single-cell holes along a
-   track and traces depth areas and contours from it. Nothing is shaded
+3. The cell medians become a raster. An empty cell is filled only where
+   soundings bracket it on opposite sides, along a row, column or diagonal,
+   across at most `--fill` cells (one by default), and GDAL traces depth areas
+   and contours from it. Nothing grows past the edge of a track or is shaded
    between tracks: an unsounded gap can hide a reef, so it must stay blank
    rather than look like open water.
 4. [tippecanoe](https://github.com/felt/tippecanoe) tiles three layers named
@@ -37,7 +39,7 @@ the region, so a small region still reads every voyage that touched it.
 
 ## Usage
 
-Requires `tippecanoe` and GDAL (`gdal_contour`, `gdal_fillnodata.py`) on the `PATH`.
+Requires `tippecanoe` and GDAL (`gdal_calc.py`, `gdal_polygonize.py`, `gdal_contour`) on the `PATH`.
 
 ```sh
 npm run build

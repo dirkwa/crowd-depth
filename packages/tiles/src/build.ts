@@ -24,9 +24,6 @@ export const DEPTH_LEVELS = [
   0, 2, 3, 5, 7.5, 10, 15, 20, 30, 50, 100, 200, 500, 1000, 2000, 5000, 11000,
 ];
 
-/** Smoothing passes over filled gaps, so single noisy cells don't ring with contours. */
-const SMOOTHING_PASSES = 3;
-
 export interface BuildOptions {
   bbox: BBox;
   out: string;
@@ -201,9 +198,9 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
 
 /**
  * Turns a grid into S-57 depth areas (DEPARE, DRVAL1/DRVAL2) and depth
- * contours (DEPCNT, VALDCO), appending them to the given files. Gaps up to
- * `fillCells` wide are interpolated so neighbouring tracks join into an area;
- * anything wider stays empty rather than inventing depths nobody measured.
+ * contours (DEPCNT, VALDCO), appending them to the given files. Holes up to
+ * `fillCells` wide along a track are interpolated so it traces as one area;
+ * nothing grows beyond the soundings, so water nobody measured stays empty.
  */
 async function traceDepths(
   grid: SoundingGrid,
@@ -212,20 +209,8 @@ async function traceDepths(
   areas: string,
   contours: string,
 ) {
-  const raw = `${base}.bin`;
-  const filled = `${base}.tif`;
-  await grid.writeRaster(raw);
-  await run("gdal_fillnodata.py", [
-    "-q",
-    "-md",
-    String(fillCells),
-    "-si",
-    String(SMOOTHING_PASSES),
-    "-co",
-    "COMPRESS=DEFLATE",
-    raw,
-    filled,
-  ]);
+  const filled = `${base}.bin`;
+  await grid.writeRaster(filled, fillCells);
   const levels = DEPTH_LEVELS.flatMap((l) => ["-fl", String(l)]);
   const classes = `${base}-classes.tif`;
   const areaOut = `${base}-areas.geojsonseq`;
