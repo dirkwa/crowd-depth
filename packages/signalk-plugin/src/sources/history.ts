@@ -1,4 +1,4 @@
-import { Config, resolveSource } from "../config.js";
+import { Config, depthReference, resolveSource } from "../config.js";
 import { Readable } from "stream";
 import { BathymetryData, BathymetrySource, Timeframe } from "../types.js";
 import { Path, ServerAPI, SourceRef } from "@signalk/server-api";
@@ -38,6 +38,10 @@ export async function createHistorySource(
       "navigation.position",
     );
     const depthSource = resolveSource(app, config.sounder?.source, depthPath);
+    // The provider stores the depth as Signal K received it; apply the same
+    // offset the live stream applies before writing, so both sources report
+    // depths measured from the same reference.
+    const { offset } = depthReference(config);
 
     const req: ValuesRequest = {
       from,
@@ -108,7 +112,7 @@ export async function createHistorySource(
             timestamp: Temporal.Instant.from(row[0]),
             longitude,
             latitude,
-            depth,
+            depth: depth + offset,
             heading: typeof heading === "number" ? heading : undefined,
           };
         }

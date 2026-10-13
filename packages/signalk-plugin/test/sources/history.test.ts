@@ -184,3 +184,26 @@ test("lists available history dates", async () => {
     Temporal.Instant.from("2025-01-04T00:00:00.000Z"),
   );
 });
+
+// Regression: the live stream adds the transducer depth before storing, but a
+// history provider stores the depth as received, so the reader must add it too
+// or a depth below the transducer is reported as one below the waterline.
+test("measures depths from the waterline like the live stream", async () => {
+  const { app: testApp } = providerApp({
+    values: [
+      { path: "navigation.position", method: "first" },
+      { path: "environment.depth.belowTransducer", method: "min" },
+    ],
+    data: [["2025-01-01T12:00:00.000Z", [1, 2], 3.2]],
+  });
+
+  const source = await createHistorySource(testApp, {
+    ...config,
+    path: "belowTransducer",
+    sounder: { x: 0, y: 0, z: 0.5 },
+  });
+  const reader = await source?.createReader(new Timeframe(from, to));
+  const [point] = await reader!.toArray();
+
+  expect(point.depth).toBeCloseTo(3.7, 6);
+});

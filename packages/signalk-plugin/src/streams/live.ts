@@ -1,6 +1,6 @@
 import { Context, Delta, Path, ServerAPI } from "@signalk/server-api";
 import { PassThrough } from "stream";
-import { Config } from "../config.js";
+import { Config, depthReference } from "../config.js";
 import { Temporal } from "@js-temporal/polyfill";
 import { BathymetryData } from "../types.js";
 
@@ -9,9 +9,7 @@ const ttl = 2000;
 
 export function createLiveStream(app: ServerAPI, config: Config) {
   const path = `environment.depth.${config.path}` as Path;
-  let offset = 0;
-  if (config.path === "belowTransducer") offset += config.sounder?.z ?? 0;
-  if (config.path === "belowKeel") offset += config.sounder?.draft ?? 0;
+  const { offset } = depthReference(config);
 
   app.debug(`Collecting depth data from environment.depth.${path}`);
 

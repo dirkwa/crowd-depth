@@ -1,7 +1,7 @@
 import { text } from "stream/consumers";
 import type { VesselInfo } from "../metadata.js";
 import { Readable } from "stream";
-import { Config } from "../config.js";
+import { Config, depthReference } from "../config.js";
 import pkg from "../../package.json" with { type: "json" };
 import {
   correctForSensorPosition,
@@ -148,7 +148,7 @@ export function getMetadata(info: VesselInfo, config: Config) {
         providerLogger: `${pkg.name} (${pkg.homepage})`,
         providerLoggerVersion: pkg.version,
         navigationCRS: crs,
-        verticalReferenceOfDepth: "Waterline",
+        verticalReferenceOfDepth: depthReference(config).reference,
         vesselPositionReferencePoint: "Transducer",
       },
       platform: {

@@ -102,6 +102,28 @@ describe("getMetadata", () => {
     expect(metadata.properties.platform.type).toEqual("Sailing");
   });
 
+  test("reports the waterline when the transducer depth is known", () => {
+    const metadata = getMetadata(vessel, {
+      ...config,
+      path: "belowTransducer",
+      sounder: { x: 0, y: 0, z: 0.5 },
+    });
+    expect(metadata.properties.trustedNode.verticalReferenceOfDepth).toBe(
+      "Waterline",
+    );
+  });
+
+  test("reports the transducer when its depth below the waterline is unknown", () => {
+    const metadata = getMetadata(vessel, {
+      ...config,
+      path: "belowTransducer",
+      sounder: { x: 0, y: 0, z: undefined as unknown as number },
+    });
+    expect(metadata.properties.trustedNode.verticalReferenceOfDepth).toBe(
+      "Transducer",
+    );
+  });
+
   test("anonymous does not include MMSI, name, etc", () => {
     const metadata = getMetadata(vessel, {
       ...config,

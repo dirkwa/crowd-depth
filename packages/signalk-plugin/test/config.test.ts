@@ -1,6 +1,6 @@
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { ServerAPI } from "@signalk/server-api";
-import { schema } from "../src/config.js";
+import { depthReference, schema } from "../src/config.js";
 
 // The server's sources tree keys devices by numeric bus address and uses
 // camelCase n2k fields (see signalk-server's admin UI sourceLabels.ts).
@@ -79,4 +79,47 @@ test("falls back to the raw sourceRef for unknown devices", () => {
     undefined,
   );
   expect(positionEnumNames(app)).toEqual(["gps-plugin"]);
+});
+
+describe("depthReference", () => {
+  const sounder = { x: 0, y: 0, z: 0.5, draft: 1.8 };
+
+  test("depth below the surface is already from the waterline", () => {
+    expect(depthReference({ path: "belowSurface", sounder })).toEqual({
+      offset: 0,
+      reference: "Waterline",
+    });
+  });
+
+  test("adds the transducer depth when it is configured", () => {
+    expect(depthReference({ path: "belowTransducer", sounder })).toEqual({
+      offset: 0.5,
+      reference: "Waterline",
+    });
+  });
+
+  test("labels the transducer as the reference when its depth is unknown", () => {
+    expect(
+      depthReference({
+        path: "belowTransducer",
+        sounder: { ...sounder, z: undefined as unknown as number },
+      }),
+    ).toEqual({ offset: 0, reference: "Transducer" });
+  });
+
+  test("adds the draft to a depth below the keel", () => {
+    expect(depthReference({ path: "belowKeel", sounder })).toEqual({
+      offset: 1.8,
+      reference: "Waterline",
+    });
+  });
+
+  test("labels a depth below the keel as unknown without a draft", () => {
+    expect(
+      depthReference({
+        path: "belowKeel",
+        sounder: { x: 0, y: 0, z: 0.5 },
+      }),
+    ).toEqual({ offset: 0, reference: "Unknown" });
+  });
 });
