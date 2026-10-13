@@ -38,6 +38,16 @@ export const BATHY_WINDOW_SIZE = Temporal.Duration.from({
 export const BATHY_DEFAULT_SCHEDULE =
   process.env.BATHY_DEFAULT_SCHEDULE ?? `0 0/${BATHY_WINDOW_SIZE.hours} * * *`;
 
+/**
+ * How long to wait at startup for a history provider before recording to
+ * SQLite instead. Providers register when their plugin has started, which for
+ * signalk-questdb means once its database container runs: seconds, or minutes
+ * when the image is first pulled.
+ */
+export const BATHY_HISTORY_WAIT = Temporal.Duration.from({
+  seconds: Number(process.env.BATHY_HISTORY_WAIT ?? 600),
+});
+
 /** Earliest date for bathymetry data. signalk-to-influxdb was first released on 2017-06-28 */
 export const BATHY_EPOCH = Temporal.Instant.from(
   process.env.BATHY_EPOCH ?? "2017-06-28T00:00:00Z",

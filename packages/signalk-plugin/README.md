@@ -16,7 +16,9 @@ and make navigation safer for everyone.
    depth soundings with GPS coordinates and timestamps as you navigate. If you
    already log data with a History API plugin (like
    [signalk-to-influxdb2](https://github.com/tkurki/signalk-to-influxdb2)), it
-   reads from that instead of storing anything extra.
+   reads from that instead of storing anything extra. A history plugin can
+   take a while to come up, so after a restart the plugin waits up to ten
+   minutes for one, recording meanwhile, before it settles on its own storage.
 2. **Correct** — Soundings are adjusted for your configured transducer and
    antenna offsets, so the reported depth and position reflect the water, not
    your installation.
@@ -80,6 +82,8 @@ the IHO data collection service under CC0.
 
 - Data is reported daily at midnight local time; set a cron-style schedule in
   the `BATHY_DEFAULT_SCHEDULE` environment variable to change it.
+- `BATHY_HISTORY_WAIT` sets how many seconds to wait at startup for a History
+  API provider (default 600).
 - Reports go to `BATHY_URL` (production: `https://depth.openwaters.io`,
   otherwise `http://localhost:3001`).
 - A helper CLI `xyz-to-geojson` (installed with the package) converts XYZ
