@@ -102,6 +102,26 @@ describe("getMetadata", () => {
     expect(metadata.properties.platform.type).toEqual("Sailing");
   });
 
+  test("gives sensor offsets from the reference point, forward, starboard and down", () => {
+    const metadata = getMetadata(vessel, {
+      ...config,
+      // Transducer 3 m from the bow, 0.5 m to port, 0.4 m below the waterline
+      sounder: { x: -0.5, y: 3, z: 0.4 },
+      // Antenna 9 m from the bow on the centreline, 2 m above the waterline
+      gnss: { x: 0, y: 9, z: 2 },
+    });
+    const [sounder, gnss] = metadata.properties.platform.sensors;
+
+    expect(metadata.properties.trustedNode.vesselPositionReferencePoint).toBe(
+      "Transducer",
+    );
+    expect(sounder!.position).toEqual([0, 0, 0]);
+    // The antenna is 6 m aft of, 0.5 m to starboard of, and 2.4 m above the transducer
+    expect(gnss!.position[0]).toBeCloseTo(-6, 6);
+    expect(gnss!.position[1]).toBeCloseTo(0.5, 6);
+    expect(gnss!.position[2]).toBeCloseTo(-2.4, 6);
+  });
+
   test("anonymous does not include MMSI, name, etc", () => {
     const metadata = getMetadata(vessel, {
       ...config,
