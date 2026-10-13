@@ -3,11 +3,7 @@ import type { VesselInfo } from "../metadata.js";
 import { Readable } from "stream";
 import { Config } from "../config.js";
 import pkg from "../../package.json" with { type: "json" };
-import {
-  correctForSensorPosition,
-  toGeoJSON,
-  toPrecision,
-} from "../streams/index.js";
+import { toGeoJSON, toPrecision } from "../streams/index.js";
 import chain from "stream-chain";
 import createDebug from "debug";
 import fetch from "../fetch.js";
@@ -105,10 +101,7 @@ export function createGeoJSON(
   vessel: VesselInfo,
   data: Readable,
 ) {
-  return toGeoJSON(
-    chain([data, correctForSensorPosition(config), toPrecision()]),
-    getMetadata(vessel, config),
-  );
+  return toGeoJSON(chain([data, toPrecision()]), getMetadata(vessel, config));
 }
 
 export async function submitGeoJSON(
@@ -182,8 +175,9 @@ export function getMetadata(info: VesselInfo, config: Config) {
             position: sensorPosition(gnssLocation(config), reference),
           },
         ],
-        // Positions have been corrected for GNSS/sounder offsets
-        positionOffsetsDocumented: true,
+        // Positions are the antenna's, as received; the sensor positions
+        // above document the offset for whoever processes the data.
+        positionOffsetsDocumented: false,
         // Data has not ben adjusted for tides, etc.
         dataProcessed: false,
       },
@@ -192,10 +186,12 @@ export function getMetadata(info: VesselInfo, config: Config) {
 }
 
 /**
- * Where submitted positions are reported for: they are corrected from the GNSS
- * antenna to the transducer before submission (see correctForSensorPosition).
+ * Where submitted positions are reported for. They are sent as the GNSS
+ * reported them, as IHO B-12 prefers raw data with documented offsets:
+ * correcting them to the transducer needs a heading for every sounding, and a
+ * sounding without one would be left uncorrected under a flag claiming it was.
  */
-export const POSITION_REFERENCE = "Transducer";
+export const POSITION_REFERENCE: "GNSS" | "Transducer" = "GNSS";
 
 /** A point on the vessel: metres from the bow, to starboard of the centreline, and below the waterline. */
 export type VesselLocation = {

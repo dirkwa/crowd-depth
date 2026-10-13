@@ -113,13 +113,13 @@ describe("getMetadata", () => {
     const [sounder, gnss] = metadata.properties.platform.sensors;
 
     expect(metadata.properties.trustedNode.vesselPositionReferencePoint).toBe(
-      "Transducer",
+      "GNSS",
     );
-    expect(sounder!.position).toEqual([0, 0, 0]);
-    // The antenna is 6 m aft of, 0.5 m to starboard of, and 2.4 m above the transducer
-    expect(gnss!.position[0]).toBeCloseTo(-6, 6);
-    expect(gnss!.position[1]).toBeCloseTo(0.5, 6);
-    expect(gnss!.position[2]).toBeCloseTo(-2.4, 6);
+    expect(gnss!.position).toEqual([0, 0, 0]);
+    // The transducer is 6 m forward of, 0.5 m to port of, and 2.4 m below the antenna
+    expect(sounder!.position[0]).toBeCloseTo(6, 6);
+    expect(sounder!.position[1]).toBeCloseTo(-0.5, 6);
+    expect(sounder!.position[2]).toBeCloseTo(2.4, 6);
   });
 
   test("anonymous does not include MMSI, name, etc", () => {
@@ -141,6 +141,24 @@ describe("getMetadata", () => {
 });
 
 describe("createGeoJSON", () => {
+  test("submits positions as the GNSS reported them", async () => {
+    const json = JSON.parse(
+      await text(
+        createGeoJSON(
+          {
+            ...config,
+            sounder: { x: 0, y: 1, z: 0.5 },
+            gnss: { x: 0, y: 9, z: 2 },
+          },
+          vessel,
+          Readable.from(data.map((d) => ({ ...d, heading: Math.PI / 2 }))),
+        ),
+      ),
+    );
+    expect(json.properties.platform.positionOffsetsDocumented).toBe(false);
+    expect(json.features[0].geometry.coordinates).toEqual([-122.123, 37.123]);
+  });
+
   test("validates against CSB schema", async () => {
     const json = JSON.parse(
       await text(createGeoJSON(config, vessel, Readable.from(data))),

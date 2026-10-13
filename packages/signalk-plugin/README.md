@@ -17,9 +17,11 @@ and make navigation safer for everyone.
    already log data with a History API plugin (like
    [signalk-to-influxdb2](https://github.com/tkurki/signalk-to-influxdb2)), it
    reads from that instead of storing anything extra.
-2. **Correct** — Soundings are adjusted for your configured transducer and
-   antenna offsets, so the reported depth and position reflect the water, not
-   your installation.
+2. **Describe** — Depths are measured from the waterline using your
+   configured transducer depth or draft. Positions are sent as your GPS
+   reported them, with the antenna and transducer offsets documented alongside,
+   as the [IHO guidance](https://iho.int/uploads/user/pubs/bathy/B_12_CSB-Guidance_Document-Edition_3.0.0_Final.pdf)
+   prefers, so whoever processes the data can correct them.
 3. **Contribute** — Once a day, the plugin uploads your soundings to [Open
    Waters](https://openwaters.io/bathymetry/crowd-depth/), an [IHO trusted
    node](https://iho.int/en/csb-crowdsourced-bathymetry) — an organization
