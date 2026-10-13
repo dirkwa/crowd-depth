@@ -112,6 +112,35 @@ export const DepthPaths = [
   "belowKeel",
 ] as const;
 
+/** The CSB `verticalReferenceOfDepth` values (IHO B-12 Table 1). */
+export type VerticalReference = "Waterline" | "Transducer" | "Unknown";
+
+/**
+ * What to add to the recorded depth to measure it from the waterline, and
+ * what the result is then measured from. When the offset that would get it to
+ * the waterline is not configured, the depth is left as recorded and labelled
+ * by what it is actually measured from, rather than claiming the waterline.
+ */
+export function depthReference(config: Pick<Config, "path" | "sounder">): {
+  offset: number;
+  reference: VerticalReference;
+} {
+  switch (config.path) {
+    case "belowSurface":
+      return { offset: 0, reference: "Waterline" };
+    case "belowTransducer":
+      return Number.isFinite(config.sounder?.z)
+        ? { offset: config.sounder.z, reference: "Waterline" }
+        : { offset: 0, reference: "Transducer" };
+    case "belowKeel":
+      return Number.isFinite(config.sounder?.draft)
+        ? { offset: config.sounder.draft!, reference: "Waterline" }
+        : { offset: 0, reference: "Unknown" };
+    default:
+      return { offset: 0, reference: "Unknown" };
+  }
+}
+
 export function schema(app: ServerAPI) {
   const defaultPath = DepthPaths.find((path) =>
     app.getSelfPath(`environment.depth.${path}.value`),
