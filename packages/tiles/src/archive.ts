@@ -100,9 +100,37 @@ export async function listFiles(
   return [...files.values()];
 }
 
+/**
+ * Splits one CSV line (RFC 4180), so a vessel or provider name holding a
+ * comma stays one field. A field is quoted only to protect such characters,
+ * so plain lines take the fast path.
+ */
+export function splitCsv(line: string): string[] {
+  if (!line.includes('"')) return line.split(",");
+  const fields: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c !== '"') field += c;
+      else if (line[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else quoted = false;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") {
+      fields.push(field);
+      field = "";
+    } else field += c;
+  }
+  fields.push(field);
+  return fields;
+}
+
 /** Parses one CSV row: UNIQUE_ID,FILE_UUID,LON,LAT,DEPTH,TIME,PLATFORM_NAME,PROVIDER. */
 export function parseRow(line: string): Sounding | undefined {
-  const fields = line.split(",");
+  const fields = splitCsv(line);
   if (fields.length < 8) return undefined;
   // Number("") is 0, which would put a blank position at 0°N 0°E.
   const [lon, lat, depth] = fields

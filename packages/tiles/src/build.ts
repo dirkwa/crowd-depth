@@ -43,9 +43,14 @@ export interface BuildOptions {
 export interface BuildReport {
   bbox: BBox;
   files: number;
+  /** Files that could not be read at all: usually index entries without a CSV in the bucket. */
   failedFiles: number;
-  /** Index entries without a CSV in the bucket, usually tiny fragments. */
   failedBytes: number;
+  /**
+   * Files whose download broke off. The soundings read before the break are
+   * kept: each one stands alone, and a retry would read them again anyway.
+   */
+  partialFiles: number;
   submittedBytes: number;
   soundings: number;
   rejected: number;
@@ -91,10 +96,13 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
   );
   let failedFiles = 0;
   let failedBytes = 0;
+  let partialFiles = 0;
   let done = 0;
   await eachLimited(files, options.concurrency, async (file) => {
+    let read = 0;
     try {
       for await (const s of readSoundings(file, doFetch)) {
+        read++;
         for (const grid of grids) {
           grid.add(
             s.lon,
@@ -106,9 +114,16 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
         }
       }
     } catch (err) {
-      failedFiles++;
-      failedBytes += file.size;
-      log(`skipped ${file.name}: ${(err as Error).message}`);
+      if (read > 0) {
+        partialFiles++;
+        log(
+          `kept ${read} soundings of ${file.name} before it failed: ${(err as Error).message}`,
+        );
+      } else {
+        failedFiles++;
+        failedBytes += file.size;
+        log(`skipped ${file.name}: ${(err as Error).message}`);
+      }
     }
     if (++done % 250 === 0) log(`${done}/${files.length} files`);
   });
@@ -124,16 +139,19 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
   log(
     `${totals.seen} soundings in the box, ${totals.rejected} rejected, ${totals.cells} cells`,
   );
+  // Tiles with no layers would replace a region's last good build with an empty chart.
+  if (totals.cells === 0) {
+    throw new Error(
+      `No usable soundings in ${options.bbox.join(",")} (${files.length} files, ${failedFiles} unreadable)`,
+    );
+  }
 
   const work = await mkdtemp(join(tmpdir(), "csb-tiles-"));
   try {
     const soundings = join(work, "SOUNDG.geojsonseq");
     const areas = join(work, "DEPARE.geojsonseq");
     const contours = join(work, "DEPCNT.geojsonseq");
-    await writeLines(
-      soundings,
-      grids.flatMap((g) => [...g.summaries()].map(toSounding)),
-    );
+    await writeLines(soundings, cellSoundings(grids));
     for (const [i, grid] of grids.entries()) {
       if (grid.stats.cells === 0) continue;
       log(`tracing depth areas (${grid.width}x${grid.height} cells)`);
@@ -182,6 +200,7 @@ export async function build(options: BuildOptions): Promise<BuildReport> {
     files: files.length,
     failedFiles,
     failedBytes,
+    partialFiles,
     submittedBytes,
     soundings: totals.seen,
     rejected: totals.rejected,
@@ -268,6 +287,13 @@ function markAsS57(mbtiles: string) {
     ).run();
   } finally {
     db.close();
+  }
+}
+
+/** One line per cell, produced as written: a busy region's lines would not fit in the heap at once. */
+function* cellSoundings(grids: SoundingGrid[]): Generator<string> {
+  for (const grid of grids) {
+    for (const cell of grid.summaries()) yield toSounding(cell);
   }
 }
 

@@ -39,6 +39,19 @@ describe("parseRow", () => {
     });
   });
 
+  test("keeps a quoted name with a comma in one field", () => {
+    expect(
+      parseRow(
+        'id,f1,177.1,-17.2,3.5,2026-10-10T18:05:29Z,"Sea Dragon, II","Sea-Bird ""CSB"" logger"',
+      ),
+    ).toMatchObject({
+      lon: 177.1,
+      depth: 3.5,
+      platform: "Sea Dragon, II",
+      provider: 'Sea-Bird "CSB" logger',
+    });
+  });
+
   test("skips rows without numeric coordinates", () => {
     expect(parseRow("a,b,,-17,3,t,p,q")).toBeUndefined();
     expect(parseRow("too,short")).toBeUndefined();

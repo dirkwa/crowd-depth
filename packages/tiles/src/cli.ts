@@ -11,6 +11,24 @@ const USAGE = `Usage: csb-tiles --bbox west,south,east,north --out region.mbtile
   --max-files <n>       Only the newest n files, for trial runs
 `;
 
+/**
+ * Reads a numeric option, refusing anything else: Number() turns "abc" into
+ * NaN and "" into 0, which would build silently with no cells or no workers.
+ */
+export function numberOption(
+  name: string,
+  value: string,
+  { min, integer = false }: { min: number; integer?: boolean },
+): number {
+  const n = value.trim() ? Number(value) : NaN;
+  if (!Number.isFinite(n) || n < min || (integer && !Number.isInteger(n))) {
+    throw new Error(
+      `--${name} must be ${integer ? "a whole number" : "a number"} of at least ${min}, not "${value}"`,
+    );
+  }
+  return n;
+}
+
 export async function main(argv: string[]) {
   const { values } = parseArgs({
     args: argv,
@@ -34,10 +52,20 @@ export async function main(argv: string[]) {
     bbox: parseBBox(values.bbox),
     out: values.out,
     name: values.name,
-    cellMeters: Number(values.cell),
-    fillCells: Number(values.fill),
-    concurrency: Number(values.concurrency),
-    ...(values["max-files"] ? { maxFiles: Number(values["max-files"]) } : {}),
+    cellMeters: numberOption("cell", values.cell, { min: 1 }),
+    fillCells: numberOption("fill", values.fill, { min: 0, integer: true }),
+    concurrency: numberOption("concurrency", values.concurrency, {
+      min: 1,
+      integer: true,
+    }),
+    ...(values["max-files"] !== undefined
+      ? {
+          maxFiles: numberOption("max-files", values["max-files"], {
+            min: 1,
+            integer: true,
+          }),
+        }
+      : {}),
     log: (message) => console.error(message),
   });
   console.log(JSON.stringify(report, null, 2));
