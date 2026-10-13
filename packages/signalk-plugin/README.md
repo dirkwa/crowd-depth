@@ -54,10 +54,17 @@ take a few minutes to measure them. Where your vessel already reports
 
 - **Depth source** — The sensor to record when more than one reports depth,
   so soundings stay pinned to a single transducer.
-- **Offsets** (required) — Transducer distance from the bow, from the
-  centerline (positive to starboard), and below the waterline, in meters.
-- **Details** (optional) — Draft, make, model, frequency, and transducer
-  type. Included in report metadata to help downstream processors assess data
+- **Offsets** — Transducer distance from the bow and from the centerline
+  (positive to starboard), in meters. Both are required.
+- **Below the waterline** (optional) — Transducer depth below the waterline,
+  in meters. With the `belowTransducer` path, it is added to each depth so
+  soundings are reported from the waterline. Leave it empty if unknown, and
+  depths are reported as measured from the transducer.
+- **Draft** (optional) — The vessel's draft in meters. With the `belowKeel`
+  path, it is added to each depth so soundings are reported from the
+  waterline. Without it, depths are reported with an unknown reference.
+- **Details** (optional) — Make, model, frequency, and transducer type.
+  Included in report metadata to help downstream processors assess data
   quality.
 
 ### GPS Receiver
