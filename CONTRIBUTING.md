@@ -85,6 +85,17 @@ npm run build -w crowd-depth
 npm run dev -w crowd-depth     # tsc --watch
 ```
 
+The end-to-end suite boots a real Signal K server with the built plugin,
+feeds it soundings over the WebSocket API and through a stand-in History API
+provider, and checks the uploads against the CSB schema. It needs a
+signalk-server install and is skipped without one:
+
+```sh
+npm install --prefix /tmp/signalk --no-save signalk-server
+npm run build
+SIGNALK_SERVER_DIR=/tmp/signalk/node_modules/signalk-server npm run test:e2e
+```
+
 To run the plugin inside a local Signal K server:
 
 ```sh
