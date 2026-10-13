@@ -117,7 +117,7 @@ describe("getMetadata", () => {
     const metadata = getMetadata(vessel, {
       ...config,
       path: "belowTransducer",
-      sounder: { x: 0, y: 0, z: undefined as unknown as number },
+      sounder: { x: 0, y: 0 },
     });
     expect(metadata.properties.trustedNode.verticalReferenceOfDepth).toBe(
       "Transducer",
