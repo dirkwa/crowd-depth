@@ -130,6 +130,10 @@ export type Metadata = ReturnType<typeof getMetadata>;
 // https://www.ncei.noaa.gov/sites/g/files/anmtlf171/files/2024-04/SampleCSBFileFormats.pdf
 export function getMetadata(info: VesselInfo, config: Config) {
   const uniqueID = toUniqueID(info);
+  const reference =
+    POSITION_REFERENCE === "Transducer"
+      ? sounderLocation(config)
+      : gnssLocation(config);
   const crs = "EPSG:4326";
 
   return {
@@ -149,7 +153,7 @@ export function getMetadata(info: VesselInfo, config: Config) {
         providerLoggerVersion: pkg.version,
         navigationCRS: crs,
         verticalReferenceOfDepth: "Waterline",
-        vesselPositionReferencePoint: "Transducer",
+        vesselPositionReferencePoint: POSITION_REFERENCE,
       },
       platform: {
         uniqueID,
@@ -167,11 +171,7 @@ export function getMetadata(info: VesselInfo, config: Config) {
             type: "Sounder",
             make: config.sounder.make ?? "Unknown",
             model: config.sounder.model ?? "Unknown",
-            position: [
-              config.sounder.x ?? 0,
-              config.sounder.y ?? 0,
-              config.sounder.z ?? 0,
-            ],
+            position: sensorPosition(sounderLocation(config), reference),
             draft: config.sounder.draft,
             frequency: config.sounder.frequency,
           },
@@ -179,11 +179,7 @@ export function getMetadata(info: VesselInfo, config: Config) {
             type: "GNSS",
             make: config.gnss.make ?? "Unknown",
             model: config.gnss.model ?? "Unknown",
-            position: [
-              config.gnss.x ?? 0,
-              config.gnss.y ?? 0,
-              config.gnss.z ?? 0,
-            ],
+            position: sensorPosition(gnssLocation(config), reference),
           },
         ],
         // Positions have been corrected for GNSS/sounder offsets
@@ -193,6 +189,57 @@ export function getMetadata(info: VesselInfo, config: Config) {
       },
     },
   };
+}
+
+/**
+ * Where submitted positions are reported for: they are corrected from the GNSS
+ * antenna to the transducer before submission (see correctForSensorPosition).
+ */
+export const POSITION_REFERENCE = "Transducer";
+
+/** A point on the vessel: metres from the bow, to starboard of the centreline, and below the waterline. */
+export type VesselLocation = {
+  fromBow: number;
+  starboard: number;
+  down: number;
+};
+
+export function sounderLocation({
+  sounder,
+}: Pick<Config, "sounder">): VesselLocation {
+  return {
+    fromBow: sounder.y ?? 0,
+    starboard: sounder.x ?? 0,
+    // The transducer's depth below the waterline
+    down: sounder.z ?? 0,
+  };
+}
+
+export function gnssLocation({ gnss }: Pick<Config, "gnss">): VesselLocation {
+  return {
+    fromBow: gnss.y ?? 0,
+    starboard: gnss.x ?? 0,
+    // The antenna's height above the waterline
+    down: -(gnss.z ?? 0),
+  };
+}
+
+/**
+ * A sensor's offset from the position reference point as the CSB convention
+ * wants it (IHO B-12 Table 3): metres, positive towards the bow, to starboard
+ * and down. The plugin's settings measure from the bow and the waterline
+ * instead, so "from bow" grows aft and the antenna height grows up.
+ */
+export function sensorPosition(
+  sensor: VesselLocation,
+  reference: VesselLocation,
+): [number, number, number] {
+  // `+ 0` turns a -0 (the reference sensor itself) into 0.
+  return [
+    reference.fromBow - sensor.fromBow + 0,
+    sensor.starboard - reference.starboard + 0,
+    sensor.down - reference.down + 0,
+  ];
 }
 
 export function toUniqueID(info: VesselInfo) {
