@@ -76,6 +76,21 @@ take a few minutes to measure them. Where your vessel already reports
 By enabling the plugin, you agree to share your position and depth data with
 the IHO data collection service under CC0.
 
+### Tides
+
+Uploaded soundings are never tide-corrected: the CSB convention asks for raw
+depths, and the archive reduces them itself. For depths shown on your own
+charts, `reduceToDatum()` reduces a sounding to Lowest Astronomical Tide (LAT)
+with the tide predicted for its time and place, offline, and marks it with
+`datum: "LAT"` and the `tide` it subtracted. A sounding with no tide station
+within 50 km keeps its sounded depth and no `datum`, so charted and uncharted
+depths are never mixed up.
+
+Predictions come from [Slackwater](https://github.com/openwatersio/slackwater),
+the engine the [signalk-tides](https://github.com/openwatersio/signalk-tides)
+plugin runs. Installing signalk-tides is recommended: it shows the tide in
+Freeboard-SK, and it is the same water level your depths are reduced with.
+
 ## For developers
 
 - Data is reported daily at midnight local time; set a cron-style schedule in

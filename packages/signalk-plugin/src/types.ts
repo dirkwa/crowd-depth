@@ -27,9 +27,14 @@ export class Timeframe {
 export type BathymetryData = {
   latitude: number;
   longitude: number;
+  /** Below the waterline as sounded, or below `datum` once reduced. */
   depth: number;
   timestamp: Temporal.Instant;
   heading?: number;
+  /** Set once `depth` is reduced to a chart datum; absent means as sounded. */
+  datum?: string;
+  /** Predicted water level above `datum` that was subtracted, in metres. */
+  tide?: number;
 };
 
 export interface BathymetrySource {
