@@ -185,6 +185,8 @@ async function startSignalK({
         // Report every few seconds rather than every six hours.
         BATHY_DEFAULT_SCHEDULE: "*/3 * * * * *",
         E2E_HISTORY: JSON.stringify(historyRows ?? []),
+        // Don't wait long for a history provider in tests that have none.
+        BATHY_HISTORY_WAIT: "2",
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
