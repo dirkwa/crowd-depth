@@ -81,6 +81,13 @@ test("falls back to the raw sourceRef for unknown devices", () => {
   expect(positionEnumNames(app)).toEqual(["gps-plugin"]);
 });
 
+test("does not require the transducer depth", () => {
+  const s = schema(mockApp({}, {})) as {
+    properties: { sounder: { required: string[] } };
+  };
+  expect(s.properties.sounder.required).not.toContain("z");
+});
+
 describe("depthReference", () => {
   const sounder = { x: 0, y: 0, z: 0.5, draft: 1.8 };
 
@@ -102,7 +109,7 @@ describe("depthReference", () => {
     expect(
       depthReference({
         path: "belowTransducer",
-        sounder: { ...sounder, z: undefined as unknown as number },
+        sounder: { x: 0, y: 0 },
       }),
     ).toEqual({ offset: 0, reference: "Transducer" });
   });
