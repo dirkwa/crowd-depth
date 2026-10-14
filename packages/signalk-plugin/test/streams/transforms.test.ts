@@ -115,10 +115,10 @@ describe("correctForSensorPosition", () => {
     expect(corrector({ ...data, heading: undefined })).toBeNull();
   });
 
-  test("keeps a sounding with no heading when the sensors coincide", () => {
+  test("keeps a sounding with no heading when the sensors are close", () => {
     const corrector = correctForSensorPosition({
-      gnss: { x: 0, y: 0 },
-      sounder: { x: 0, y: 0 },
+      gnss: { x: 0, y: 0.5 },
+      sounder: { x: 0.5, y: 0 },
     });
 
     expect(corrector({ ...data, heading: undefined })).toEqual({
