@@ -52,8 +52,7 @@ R2, and forwards them to NOAA's CSB endpoint.
 
 ## Development setup
 
-Requires Node >= 24, which is what CI pins and what `mise.toml` mirrors, so
-`mise install` reproduces the tested toolchain.
+Requires Node >= 24. Local development and CI read the tested Node version from `mise.toml`; `mise install` installs it locally.
 
 ```sh
 npm ci            # installs all workspaces from package-lock.json
