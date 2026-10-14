@@ -207,3 +207,68 @@ test("measures depths from the waterline like the live stream", async () => {
 
   expect(point.depth).toBeCloseTo(3.7, 6);
 });
+
+test("orients soundings by course over ground when no heading was recorded", async () => {
+  const { app: testApp } = providerApp({
+    values: [
+      { path: "navigation.position", method: "first" },
+      { path: "environment.depth.depthFromTransducer", method: "min" },
+      { path: "navigation.courseOverGroundTrue", method: "min" },
+      { path: "navigation.speedOverGround", method: "min" },
+    ],
+    data: [
+      ["2025-01-01T12:00:00.000Z", [1, 2], 3.2, 1.5, 3],
+      ["2025-01-01T12:00:01.000Z", [1, 2], 3.3, 1.5, 0.2], // nearly stopped
+    ],
+  });
+
+  const source = await createHistorySource(testApp, config);
+  const points = await (await source!.createReader(
+    new Timeframe(from, to),
+  ))!.toArray();
+
+  expect(points.map((p) => p.heading)).toEqual([1.5, undefined]);
+});
+
+// Regression: a provider that throws on an unrecorded path must not cost the
+// orientation paths it does have, or every sounding would be dropped.
+test("retries with the orientation paths the provider has recorded", async () => {
+  const calls: string[][] = [];
+  const history = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getValues: async ({ pathSpecs }: any) => {
+      const paths = pathSpecs.map((s: { path: string }) => s.path);
+      calls.push(paths);
+      if (paths.includes("navigation.headingTrue")) throw new Error("no path");
+      return {
+        context: "vessels.self",
+        range: { from, to },
+        data: [["2025-01-01T12:00:00.000Z", [1, 2], 3.2, 1.5, 3]],
+      };
+    },
+    getPaths: async () => [
+      "navigation.position",
+      "environment.depth.depthFromTransducer",
+      "navigation.courseOverGroundTrue",
+      "navigation.speedOverGround",
+    ],
+  };
+  const testApp = {
+    ...app,
+    getSelfPath: () => undefined,
+    getHistoryApi: async () => history,
+  } as unknown as typeof app;
+
+  const source = await createHistorySource(testApp, config);
+  const points = await (await source!.createReader(
+    new Timeframe(from, to),
+  ))!.toArray();
+
+  expect(calls[1]).toEqual([
+    "navigation.position",
+    "environment.depth.depthFromTransducer",
+    "navigation.courseOverGroundTrue",
+    "navigation.speedOverGround",
+  ]);
+  expect(points[0].heading).toBe(1.5);
+});

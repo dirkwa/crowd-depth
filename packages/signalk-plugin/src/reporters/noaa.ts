@@ -182,7 +182,8 @@ export function getMetadata(info: VesselInfo, config: Config) {
             position: sensorPosition(gnssLocation(config), reference),
           },
         ],
-        // Positions have been corrected for GNSS/sounder offsets
+        // Positions are corrected for GNSS/sounder offsets; soundings that
+        // can't be are dropped (see correctForSensorPosition)
         positionOffsetsDocumented: true,
         // Data has not ben adjusted for tides, etc.
         dataProcessed: false,

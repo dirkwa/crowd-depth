@@ -19,7 +19,9 @@ and make navigation safer for everyone.
    reads from that instead of storing anything extra.
 2. **Correct** — Soundings are adjusted for your configured transducer and
    antenna offsets, so the reported depth and position reflect the water, not
-   your installation.
+   your installation. Positions are moved from the antenna to the transducer
+   using your heading, or your course over ground while you are moving at over
+   about 1 knot. Soundings that can't be placed that way are not uploaded.
 3. **Contribute** — Once a day, the plugin uploads your soundings to [Open
    Waters](https://openwaters.io/bathymetry/crowd-depth/), an [IHO trusted
    node](https://iho.int/en/csb-crowdsourced-bathymetry) — an organization
