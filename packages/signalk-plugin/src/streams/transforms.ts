@@ -36,14 +36,6 @@ export type SensorConfig = {
 export const MIN_COG_SPEED = 0.5144;
 
 /**
- * Antenna-to-transducer distance, in metres, below which a sounding with no
- * bearing is submitted uncorrected rather than dropped: the shift is smaller
- * than the GNSS's own error, and dropping would cost a boat without a heading
- * sensor every sounding at anchor.
- */
-export const MIN_CORRECTED_OFFSET = 1;
-
-/**
  * The direction the bow points, in radians, for moving a sounding from the
  * antenna to the transducer: the heading when known, else the course over
  * ground while the vessel is making way, else undefined.
@@ -69,16 +61,14 @@ export function bowBearing({
 /**
  * Move each sounding from the GNSS antenna to the transducer. The CSB format
  * carries no heading, so nobody downstream can apply the offset; a sounding
- * that can't be corrected here is dropped rather than submitted as corrected,
- * unless the offset is too small to matter.
+ * that can't be corrected here is dropped rather than submitted as corrected.
  */
 export function correctForSensorPosition(config: SensorConfig) {
   const { distance, bearing } = getOffsets(config);
 
   return ({ heading, ...data }: BathymetryData): BathymetryData | null => {
     if (distance === 0) return data;
-    if (!isFiniteNumber(heading))
-      return distance < MIN_CORRECTED_OFFSET ? data : null;
+    if (!isFiniteNumber(heading)) return null;
 
     // Convert heading from radians to degrees, and adjust for the offset bearing
     const sensorBearing = ((heading * 180) / Math.PI + bearing) % 360;
