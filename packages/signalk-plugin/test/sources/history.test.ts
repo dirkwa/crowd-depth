@@ -75,6 +75,26 @@ test("pairs position, depth and heading, dropping rows without a position or dep
   ]);
 });
 
+test("leaves the bucket stamped at the end of the window for the next report", async () => {
+  const { app: testApp } = providerApp({
+    values: [
+      { path: "navigation.position", method: "first" },
+      { path: "environment.depth.depthFromTransducer", method: "min" },
+    ],
+    data: [
+      ["2025-01-01T23:59:59.000Z", [1, 2], 3.2],
+      [to.toString(), [3, 4], 5.6],
+    ],
+  });
+
+  const source = await createHistorySource(testApp, config);
+  const reader = await source?.createReader(new Timeframe(from, to));
+
+  expect((await reader!.toArray()).map((d) => d.timestamp)).toEqual([
+    Temporal.Instant.from("2025-01-01T23:59:59.000Z"),
+  ]);
+});
+
 // Regression: the provider may return columns in a different order than
 // requested, so columns must be mapped by path, not by position.
 test("maps columns by path when the provider reorders them", async () => {

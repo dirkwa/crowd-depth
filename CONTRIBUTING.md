@@ -102,6 +102,8 @@ outside `node_modules` and reference it with a `file:` dependency instead.
 By default the plugin reports to `http://localhost:3001` unless
 `NODE_ENV=production`; set `BATHY_URL` to override, and
 `BATHY_DEFAULT_SCHEDULE` (cron syntax) to change the reporting schedule.
+Each report leaves out the last `BATHY_REPORT_DELAY` seconds (default 300);
+set it to `0` to report soundings as soon as they're recorded.
 
 ### Working on the API
 

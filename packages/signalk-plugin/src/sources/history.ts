@@ -140,7 +140,10 @@ export async function createHistorySource(
           };
         }
       })
-      .filter((point): point is BathymetryData => point !== undefined);
+      .filter((point): point is BathymetryData => point !== undefined)
+      // Providers include `to`, but the next report starts there, so leave the
+      // bucket stamped `to` for it.
+      .filter((point) => Temporal.Instant.compare(point.timestamp, to) < 0);
 
     app.debug("Read %d bathymetry points from history", data.length);
 

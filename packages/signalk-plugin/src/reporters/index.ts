@@ -9,6 +9,7 @@ import {
   BATHY_DEFAULT_SCHEDULE,
   BATHY_EPOCH,
   BATHY_WINDOW_SIZE,
+  BATHY_REPORT_DELAY,
 } from "../constants.js";
 import type { DatabaseSync } from "node:sqlite";
 import { Temporal } from "@js-temporal/polyfill";
@@ -41,12 +42,25 @@ export function createReporter({
   const job = new CronJob(schedule, report);
   signal.addEventListener("abort", stop, { once: true });
 
-  async function report(
-    timeframe = new Timeframe(
+  // From the last report to a whole second BATHY_REPORT_DELAY ago. History
+  // providers bucket by the second, so a window ending mid-second would split
+  // a bucket across two reports.
+  function unreported() {
+    return new Timeframe(
       reportLog.lastReport ?? BATHY_EPOCH,
-      Temporal.Now.instant(),
-    ),
-  ) {
+      Temporal.Now.instant()
+        .subtract(BATHY_REPORT_DELAY)
+        .round({ smallestUnit: "second", roundingMode: "floor" }),
+    );
+  }
+
+  async function report(timeframe = unreported()) {
+    // An empty window, as when reports run less than BATHY_REPORT_DELAY apart
+    // and the last one already reached past this one's end.
+    if (Temporal.Instant.compare(timeframe.from, timeframe.to) >= 0) {
+      app.debug(`Nothing to report from ${timeframe.from} to ${timeframe.to}`);
+      return;
+    }
     app.debug(`Generating report from ${timeframe.from} to ${timeframe.to}`);
     try {
       const data = await source.createReader(timeframe);
@@ -81,10 +95,7 @@ export function createReporter({
   }
 
   async function reportInBatches(
-    timeframe = new Timeframe(
-      reportLog.lastReport ?? BATHY_EPOCH,
-      Temporal.Now.instant(),
-    ),
+    timeframe = unreported(),
     windowSize = BATHY_WINDOW_SIZE,
   ) {
     app.debug(
