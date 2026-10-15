@@ -67,6 +67,22 @@ test("reading with from and to", async () => {
   expect(result[0].timestamp).toEqual(data[1].timestamp);
 });
 
+test("a sounding on a window boundary is read by one window only", async () => {
+  const source = createSqliteSource(app, createDB(":memory:"));
+  await pipeline(Readable.from(data), source.createWriter!());
+
+  // data[1] is stamped exactly where the first window ends and the next starts.
+  const boundary = data[1].timestamp;
+  const read = async (from: Temporal.Instant, to: Temporal.Instant) =>
+    (await (await source.createReader(new Timeframe(from, to)))?.toArray()) ??
+    [];
+  const first = await read(data[0].timestamp, boundary);
+  const second = await read(boundary, data[2].timestamp);
+
+  expect(first.map((d) => d.timestamp)).toEqual([data[0].timestamp]);
+  expect(second.map((d) => d.timestamp)).toEqual([boundary]);
+});
+
 test("reading with no data", async () => {
   const source = createSqliteSource(app, createDB(":memory:"));
 

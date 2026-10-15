@@ -34,6 +34,28 @@ export const BATHY_WINDOW_SIZE = Temporal.Duration.from({
   hours: Number(process.env.BATHY_WINDOW_SIZE ?? 6),
 });
 
+/**
+ * How far behind now each report window ends. A sounding is stamped before it
+ * reaches storage, so a window ending at now could close before the sounding
+ * lands, and the next one would start after it. Live data lands a few ticks
+ * later. signalk-to-influxdb2 by default buffers writes for up to 60 s and
+ * retries a failed write for up to 180 s; raise this if its write options are
+ * raised. A sounding that reaches storage later than this after its
+ * timestamp, such as one stamped by a device with a slow clock, is never
+ * reported.
+ */
+const reportDelay = Number(process.env.BATHY_REPORT_DELAY ?? 300);
+// A negative delay would end reports in the future, past soundings not yet
+// recorded, and the next report would start after them.
+if (!(reportDelay >= 0)) {
+  throw new RangeError(
+    `BATHY_REPORT_DELAY must be a number of seconds, 0 or more, not "${process.env.BATHY_REPORT_DELAY}"`,
+  );
+}
+export const BATHY_REPORT_DELAY = Temporal.Duration.from({
+  milliseconds: Math.round(reportDelay * 1000),
+});
+
 /** Cron schedule to report bathy */
 export const BATHY_DEFAULT_SCHEDULE =
   process.env.BATHY_DEFAULT_SCHEDULE ?? `0 0/${BATHY_WINDOW_SIZE.hours} * * *`;
