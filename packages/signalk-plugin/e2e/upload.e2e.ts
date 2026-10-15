@@ -190,6 +190,9 @@ async function startSignalK({
         BATHY_URL: trustedNodeUrl,
         // Report every few seconds rather than every six hours.
         BATHY_DEFAULT_SCHEDULE: "*/3 * * * * *",
+        // Leave reports only the moment a sounding takes to reach storage,
+        // not the minutes a buffering history provider needs.
+        BATHY_REPORT_DELAY: "1",
         E2E_HISTORY: JSON.stringify(historyRows ?? []),
         // Don't wait long for a history provider in tests that have none, and
         // give one that registers after the plugin starts time to be found.
