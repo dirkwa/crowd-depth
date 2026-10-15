@@ -44,8 +44,16 @@ export const BATHY_WINDOW_SIZE = Temporal.Duration.from({
  * timestamp, such as one stamped by a device with a slow clock, is never
  * reported.
  */
+const reportDelay = Number(process.env.BATHY_REPORT_DELAY ?? 300);
+// A negative delay would end reports in the future, past soundings not yet
+// recorded, and the next report would start after them.
+if (!(reportDelay >= 0)) {
+  throw new RangeError(
+    `BATHY_REPORT_DELAY must be a number of seconds, 0 or more, not "${process.env.BATHY_REPORT_DELAY}"`,
+  );
+}
 export const BATHY_REPORT_DELAY = Temporal.Duration.from({
-  seconds: Number(process.env.BATHY_REPORT_DELAY ?? 300),
+  milliseconds: Math.round(reportDelay * 1000),
 });
 
 /** Cron schedule to report bathy */

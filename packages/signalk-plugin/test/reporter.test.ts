@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { createReporter, createReportLogger, Timeframe } from "../src";
 import { createDB } from "../src/storage";
 import { Temporal } from "@js-temporal/polyfill";
@@ -10,6 +10,31 @@ test("the report delay outlasts an InfluxDB write", () => {
   // signalk-to-influxdb2 by default buffers writes for up to 60 s and retries
   // a failed one for up to 180 s.
   expect(BATHY_REPORT_DELAY.total("seconds")).toBeGreaterThanOrEqual(240);
+});
+
+describe("BATHY_REPORT_DELAY", () => {
+  async function load(value: string) {
+    vi.stubEnv("BATHY_REPORT_DELAY", value);
+    vi.resetModules();
+    try {
+      return (await import("../src/constants")).BATHY_REPORT_DELAY;
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  }
+
+  test("accepts fractional seconds", async () => {
+    expect((await load("1.5")).total("milliseconds")).toBe(1500);
+  });
+
+  test("rejects a negative delay", async () => {
+    await expect(load("-1")).rejects.toThrow("BATHY_REPORT_DELAY");
+  });
+
+  test("rejects a delay that isn't a number", async () => {
+    await expect(load("soon")).rejects.toThrow("BATHY_REPORT_DELAY");
+  });
 });
 
 test("logReport", async () => {
@@ -144,6 +169,34 @@ describe("report checkpoints", () => {
       .prepare("SELECT count(*) AS count FROM reports")
       .get() as { count: number };
     expect(count).toBe(1);
+    abortController.abort();
+  });
+
+  test("skips a batch scan the last report already covers", async () => {
+    const db = createDB(":memory:");
+    const logger = createReportLogger(db);
+    const now = Temporal.Now.instant();
+    logger.logReport(new Timeframe(now.subtract({ minutes: 1 }), now));
+    const abortController = new AbortController();
+    let scanned = false;
+    const reporter = createReporter({
+      app,
+      config,
+      db,
+      status: createStatus(app),
+      signal: abortController.signal,
+      source: {
+        createReader: async () => undefined,
+        getAvailableTimeframes: async () => {
+          scanned = true;
+          return [];
+        },
+      },
+    });
+
+    await reporter.reportInBatches();
+
+    expect(scanned).toBe(false);
     abortController.abort();
   });
 

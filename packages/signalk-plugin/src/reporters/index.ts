@@ -104,6 +104,10 @@ export function createReporter({
     );
 
     if (signal.aborted) return;
+    if (Temporal.Instant.compare(timeframe.from, timeframe.to) >= 0) {
+      app.debug(`Nothing to report from ${timeframe.from} to ${timeframe.to}`);
+      return;
+    }
     const windows = await source.getAvailableTimeframes(timeframe, windowSize);
     if (signal.aborted) return;
 
