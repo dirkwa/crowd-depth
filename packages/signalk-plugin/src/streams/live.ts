@@ -3,6 +3,7 @@ import { PassThrough } from "stream";
 import { Config, depthReference } from "../config.js";
 import { Temporal } from "@js-temporal/polyfill";
 import { BathymetryData } from "../types.js";
+import { bowBearing } from "./transforms.js";
 
 /** Maximum age of last position fix for a depth to be saved */
 const ttl = 2000;
@@ -39,8 +40,6 @@ export function createLiveStream(app: ServerAPI, config: Config) {
               timestamp: string;
             }
           | undefined;
-        let heading = app.getSelfPath("navigation.headingTrue") as
-          { value: number; timestamp: string } | undefined;
 
         if ("values" in update) {
           update.values.forEach(({ value }) => {
@@ -52,22 +51,24 @@ export function createLiveStream(app: ServerAPI, config: Config) {
             if (isStale(position, timestamp, ttl))
               return app.debug("Stale position data, ignoring depth data");
 
-            // TODO: Figure out the right behavior here. A couple options:
-            // 1. Only require heading if configured sensor offsets are significant
-            // 2. Use dead reckoning to guess heading from last position
-            if (!heading) {
-              // No heading data
-            } else if (isStale(heading, timestamp, ttl)) {
-              app.debug("Stale heading data, discarding");
-              heading = undefined;
-            }
+            const heading = bowBearing({
+              heading: freshValue("navigation.headingTrue", timestamp),
+              courseOverGround: freshValue(
+                "navigation.courseOverGroundTrue",
+                timestamp,
+              ),
+              speedOverGround: freshValue(
+                "navigation.speedOverGround",
+                timestamp,
+              ),
+            });
 
             const data: BathymetryData = {
               longitude: position.value.longitude,
               latitude: position.value.latitude,
               depth,
               timestamp,
-              heading: heading?.value,
+              heading,
             };
 
             app.debug(
@@ -85,6 +86,13 @@ export function createLiveStream(app: ServerAPI, config: Config) {
   );
 
   return stream;
+
+  function freshValue(path: string, timestamp: Temporal.Instant) {
+    const node = app.getSelfPath(path) as
+      { value: unknown; timestamp: string } | undefined;
+    if (!node || isStale(node, timestamp, ttl)) return undefined;
+    return typeof node.value === "number" ? node.value : undefined;
+  }
 }
 
 function isStale(

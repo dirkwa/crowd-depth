@@ -5,6 +5,7 @@ import { Path, ServerAPI, SourceRef } from "@signalk/server-api";
 import {
   ContextsRequest,
   ContextsResponse,
+  DataRow,
   HistoryApi,
   PathsRequest,
   PathsResponse,
@@ -14,6 +15,12 @@ import {
 import { Temporal } from "@js-temporal/polyfill";
 import { BATHY_EPOCH } from "../constants.js";
 import fetch from "../fetch.js";
+import { setTimeout as sleep } from "node:timers/promises";
+import { bowBearing } from "../streams/transforms.js";
+
+const HEADING = "navigation.headingTrue";
+const COG = "navigation.courseOverGroundTrue";
+const SOG = "navigation.speedOverGround";
 
 export async function createHistorySource(
   app: ServerAPI,
@@ -63,11 +70,15 @@ export async function createHistorySource(
           parameter: [],
           ...(depthSource ? { sourceRef: depthSource as SourceRef } : {}),
         },
-        {
-          path: "navigation.headingTrue" as Path,
-          aggregate: "average",
+        // Heading, or COG while making way, moves each sounding from the
+        // antenna to the transducer. `min` rather than `average`: averaging
+        // angles either side of north points the bow south, and the slowest
+        // speed in a bucket is the safe one to test against.
+        ...[HEADING, COG, SOG].map((path) => ({
+          path: path as Path,
+          aggregate: "min" as const,
           parameter: [],
-        },
+        })),
       ],
     };
 
@@ -76,9 +87,15 @@ export async function createHistorySource(
     try {
       res = await history!.getValues(req);
     } catch {
-      // The provider throws if a requested path doesn't exist; retry without heading.
+      // The provider throws if a requested path doesn't exist, so retry with
+      // only the orientation paths it has recorded.
       // https://github.com/tkurki/signalk-to-influxdb2/issues/99
-      pathSpecs = req.pathSpecs.slice(0, 2);
+      const recorded: string[] = await Promise.resolve()
+        .then(() => history!.getPaths({ from, to }))
+        .catch(() => []);
+      pathSpecs = req.pathSpecs.filter(
+        (spec, i) => i < 2 || recorded.includes(spec.path),
+      );
       res = await history!.getValues({ ...req, pathSpecs });
     }
 
@@ -87,13 +104,15 @@ export async function createHistorySource(
     const columns = columnsByPath(res.values, pathSpecs);
     const positionColumn = columns.get("navigation.position");
     const depthColumn = columns.get(depthPath);
-    const headingColumn = columns.get("navigation.headingTrue");
+    const column = (row: DataRow, path: string) => {
+      const index = columns.get(path);
+      const value = index === undefined ? undefined : row[index];
+      return typeof value === "number" ? value : undefined;
+    };
 
     const data = res.data
       .map((row): BathymetryData | undefined => {
         const depth = depthColumn === undefined ? undefined : row[depthColumn];
-        const heading =
-          headingColumn === undefined ? undefined : row[headingColumn];
         const position =
           positionColumn === undefined
             ? undefined
@@ -113,7 +132,11 @@ export async function createHistorySource(
             longitude,
             latitude,
             depth: depth + offset,
-            heading: typeof heading === "number" ? heading : undefined,
+            heading: bowBearing({
+              heading: column(row, HEADING),
+              courseOverGround: column(row, COG),
+              speedOverGround: column(row, SOG),
+            }),
           };
         }
       })
@@ -170,6 +193,46 @@ export async function createHistorySource(
     createReader,
     getAvailableTimeframes,
   };
+}
+
+export interface WaitOptions {
+  timeout: Temporal.Duration;
+  interval?: Temporal.Duration;
+  signal?: AbortSignal;
+}
+
+/**
+ * Keeps looking for a history source until one appears or the timeout passes.
+ * Plugins start in no particular order, and a provider registers only once its
+ * plugin is up, so one that is missing at startup may just not be ready yet.
+ */
+export async function waitForHistorySource(
+  find: () => Promise<BathymetrySource | undefined>,
+  {
+    timeout,
+    interval = Temporal.Duration.from({ seconds: 5 }),
+    signal,
+  }: WaitOptions,
+): Promise<BathymetrySource | undefined> {
+  const deadline = Date.now() + timeout.total("milliseconds");
+  for (;;) {
+    if (signal?.aborted) return;
+    const source = await find();
+    if (source) return source;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return;
+    try {
+      await sleep(
+        Math.min(interval.total("milliseconds"), remaining),
+        undefined,
+        {
+          signal,
+        },
+      );
+    } catch {
+      return;
+    }
+  }
 }
 
 export interface HistorySourceOptions {

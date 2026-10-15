@@ -16,10 +16,14 @@ and make navigation safer for everyone.
    depth soundings with GPS coordinates and timestamps as you navigate. If you
    already log data with a History API plugin (like
    [signalk-to-influxdb2](https://github.com/tkurki/signalk-to-influxdb2)), it
-   reads from that instead of storing anything extra.
+   reads from that instead of storing anything extra. A history plugin can
+   take a while to come up, so after a restart the plugin waits up to ten
+   minutes for one, recording meanwhile, before it settles on its own storage.
 2. **Correct** — Soundings are adjusted for your configured transducer and
    antenna offsets, so the reported depth and position reflect the water, not
-   your installation.
+   your installation. Positions are moved from the antenna to the transducer
+   using your heading, or your course over ground while you are moving at over
+   about 1 knot. Soundings that can't be placed that way are not uploaded.
 3. **Contribute** — Once a day, the plugin uploads your soundings to [Open
    Waters](https://openwaters.io/bathymetry/crowd-depth/), an [IHO trusted
    node](https://iho.int/en/csb-crowdsourced-bathymetry) — an organization
@@ -54,10 +58,17 @@ take a few minutes to measure them. Where your vessel already reports
 
 - **Depth source** — The sensor to record when more than one reports depth,
   so soundings stay pinned to a single transducer.
-- **Offsets** (required) — Transducer distance from the bow, from the
-  centerline (positive to starboard), and below the waterline, in meters.
-- **Details** (optional) — Draft, make, model, frequency, and transducer
-  type. Included in report metadata to help downstream processors assess data
+- **Offsets** — Transducer distance from the bow and from the centerline
+  (positive to starboard), in meters. Both are required.
+- **Below the waterline** (optional) — Transducer depth below the waterline,
+  in meters. With the `belowTransducer` path, it is added to each depth so
+  soundings are reported from the waterline. Leave it empty if unknown, and
+  depths are reported as measured from the transducer.
+- **Draft** (optional) — The vessel's draft in meters. With the `belowKeel`
+  path, it is added to each depth so soundings are reported from the
+  waterline. Without it, depths are reported with an unknown reference.
+- **Details** (optional) — Make, model, frequency, and transducer type.
+  Included in report metadata to help downstream processors assess data
   quality.
 
 ### GPS Receiver
@@ -80,6 +91,8 @@ the IHO data collection service under CC0.
 
 - Data is reported daily at midnight local time; set a cron-style schedule in
   the `BATHY_DEFAULT_SCHEDULE` environment variable to change it.
+- `BATHY_HISTORY_WAIT` sets how many seconds to wait at startup for a History
+  API provider (default 600).
 - Reports go to `BATHY_URL` (production: `https://depth.openwaters.io`,
   otherwise `http://localhost:3001`).
 - A helper CLI `xyz-to-geojson` (installed with the package) converts XYZ
