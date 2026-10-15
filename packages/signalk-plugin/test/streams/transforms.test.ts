@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
+  bowBearing,
   correctForSensorPosition,
   getOffsets,
+  MIN_COG_SPEED,
 } from "../../src/streams/transforms.js";
 import { getDistance } from "geolib";
 import { Temporal } from "@js-temporal/polyfill";
@@ -94,7 +96,7 @@ describe("correctForSensorPosition", () => {
       sounder: { x: 0, y: 0 },
     });
 
-    const corrected = corrector(data);
+    const corrected = corrector(data)!;
 
     expect(getDistance(data, corrected)).toBeCloseTo(10, 2);
     expect(corrected.latitude).toBeCloseTo(1.00009, 5);
@@ -102,5 +104,52 @@ describe("correctForSensorPosition", () => {
     expect(corrected.depth).toEqual(data.depth);
     expect(corrected.timestamp).toEqual(data.timestamp);
     expect("heading" in corrected).toBe(false);
+  });
+
+  test("drops a sounding with no heading when the sensors are apart", () => {
+    const corrector = correctForSensorPosition({
+      gnss: { x: 0, y: 10 },
+      sounder: { x: 0, y: 0 },
+    });
+
+    expect(corrector({ ...data, heading: undefined })).toBeNull();
+  });
+
+  test("keeps a sounding with no heading when the sensors coincide", () => {
+    const corrector = correctForSensorPosition({
+      gnss: { x: 0, y: 0 },
+      sounder: { x: 0, y: 0 },
+    });
+
+    expect(corrector({ ...data, heading: undefined })).toEqual({
+      latitude: data.latitude,
+      longitude: data.longitude,
+      depth: data.depth,
+      timestamp: data.timestamp,
+    });
+  });
+});
+
+describe("bowBearing", () => {
+  test("prefers the heading", () => {
+    expect(
+      bowBearing({ heading: 1, courseOverGround: 2, speedOverGround: 5 }),
+    ).toBe(1);
+  });
+
+  test("falls back to course over ground while making way", () => {
+    expect(
+      bowBearing({ courseOverGround: 2, speedOverGround: MIN_COG_SPEED }),
+    ).toBe(2);
+  });
+
+  test("ignores course over ground when nearly stopped", () => {
+    expect(
+      bowBearing({ courseOverGround: 2, speedOverGround: 0.3 }),
+    ).toBeUndefined();
+  });
+
+  test("ignores course over ground without a speed", () => {
+    expect(bowBearing({ courseOverGround: 2 })).toBeUndefined();
   });
 });

@@ -6,7 +6,8 @@ export type Config = {
   sounder: {
     x: number;
     y: number;
-    z: number;
+    /** Depth of the transducer below the waterline; unknown when unset. */
+    z?: number;
     draft?: number;
     make?: string;
     model?: string;
@@ -112,6 +113,36 @@ export const DepthPaths = [
   "belowKeel",
 ] as const;
 
+/** The CSB `verticalReferenceOfDepth` values (IHO B-12 Table 1). */
+export type VerticalReference = "Waterline" | "Transducer" | "Unknown";
+
+/**
+ * What to add to the recorded depth to measure it from the waterline, and
+ * what the result is then measured from. When the offset that would get it to
+ * the waterline is not configured, the depth is left as recorded and labelled
+ * by what it is actually measured from, rather than claiming the waterline.
+ */
+export function depthReference(config: Pick<Config, "path" | "sounder">): {
+  offset: number;
+  reference: VerticalReference;
+} {
+  switch (config.path) {
+    case "belowSurface":
+      return { offset: 0, reference: "Waterline" };
+    case "belowTransducer":
+      return config.sounder?.z !== undefined &&
+        Number.isFinite(config.sounder.z)
+        ? { offset: config.sounder.z, reference: "Waterline" }
+        : { offset: 0, reference: "Transducer" };
+    case "belowKeel":
+      return Number.isFinite(config.sounder?.draft)
+        ? { offset: config.sounder.draft!, reference: "Waterline" }
+        : { offset: 0, reference: "Unknown" };
+    default:
+      return { offset: 0, reference: "Unknown" };
+  }
+}
+
 export function schema(app: ServerAPI) {
   const defaultPath = DepthPaths.find((path) =>
     app.getSelfPath(`environment.depth.${path}.value`),
@@ -136,7 +167,9 @@ export function schema(app: ServerAPI) {
       sounder: {
         type: "object",
         title: "Depth Sounder",
-        required: ["x", "y", "z"],
+        // The transducer depth may be unknown; depths are then reported as
+        // measured from the transducer rather than the waterline.
+        required: ["x", "y"],
         properties: {
           source: sourceSchema(app, "Depth source", "depth", depthSources),
           y: {
@@ -154,6 +187,8 @@ export function schema(app: ServerAPI) {
           z: {
             type: "number",
             title: "Distance of the transducer below the waterline (meters)",
+            description:
+              "Leave empty if unknown: depths below the transducer are then shared as measured from the transducer, not the waterline.",
             default: app.getSelfPath(
               "environment.depth.surfaceToTransducer.value",
             ),

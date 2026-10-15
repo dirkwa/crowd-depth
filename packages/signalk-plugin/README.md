@@ -21,7 +21,9 @@ and make navigation safer for everyone.
    minutes for one, recording meanwhile, before it settles on its own storage.
 2. **Correct** — Soundings are adjusted for your configured transducer and
    antenna offsets, so the reported depth and position reflect the water, not
-   your installation.
+   your installation. Positions are moved from the antenna to the transducer
+   using your heading, or your course over ground while you are moving at over
+   about 1 knot. Soundings that can't be placed that way are not uploaded.
 3. **Contribute** — Once a day, the plugin uploads your soundings to [Open
    Waters](https://openwaters.io/bathymetry/crowd-depth/), an [IHO trusted
    node](https://iho.int/en/csb-crowdsourced-bathymetry) — an organization
@@ -56,10 +58,17 @@ take a few minutes to measure them. Where your vessel already reports
 
 - **Depth source** — The sensor to record when more than one reports depth,
   so soundings stay pinned to a single transducer.
-- **Offsets** (required) — Transducer distance from the bow, from the
-  centerline (positive to starboard), and below the waterline, in meters.
-- **Details** (optional) — Draft, make, model, frequency, and transducer
-  type. Included in report metadata to help downstream processors assess data
+- **Offsets** — Transducer distance from the bow and from the centerline
+  (positive to starboard), in meters. Both are required.
+- **Below the waterline** (optional) — Transducer depth below the waterline,
+  in meters. With the `belowTransducer` path, it is added to each depth so
+  soundings are reported from the waterline. Leave it empty if unknown, and
+  depths are reported as measured from the transducer.
+- **Draft** (optional) — The vessel's draft in meters. With the `belowKeel`
+  path, it is added to each depth so soundings are reported from the
+  waterline. Without it, depths are reported with an unknown reference.
+- **Details** (optional) — Make, model, frequency, and transducer type.
+  Included in report metadata to help downstream processors assess data
   quality.
 
 ### GPS Receiver

@@ -15,9 +15,10 @@ export function toPrecision({ coordinates = 7, depth = 3, heading = 3 } = {}) {
       latitude: parseFloat(data.latitude.toFixed(coordinates)),
       longitude: parseFloat(data.longitude.toFixed(coordinates)),
       depth: parseFloat(data.depth.toFixed(depth)),
-      heading: data.heading
-        ? parseFloat(data.heading.toFixed(heading))
-        : undefined,
+      heading:
+        data.heading !== undefined
+          ? parseFloat(data.heading.toFixed(heading))
+          : undefined,
     };
   };
 }
@@ -27,13 +28,47 @@ export type SensorConfig = {
   sounder: { x: number; y: number };
 };
 
+/**
+ * Slowest speed over ground, in m/s (~1 kn), at which course over ground stands
+ * in for a missing heading. Above it, leeway and current rarely put COG more
+ * than ~10° off heading, which moves a 6 m offset by ~1 m, under GNSS error.
+ */
+export const MIN_COG_SPEED = 0.5144;
+
+/**
+ * The direction the bow points, in radians, for moving a sounding from the
+ * antenna to the transducer: the heading when known, else the course over
+ * ground while the vessel is making way, else undefined.
+ */
+export function bowBearing({
+  heading,
+  courseOverGround,
+  speedOverGround,
+}: {
+  heading?: number;
+  courseOverGround?: number;
+  speedOverGround?: number;
+}): number | undefined {
+  if (isFiniteNumber(heading)) return heading;
+  if (
+    isFiniteNumber(courseOverGround) &&
+    isFiniteNumber(speedOverGround) &&
+    speedOverGround >= MIN_COG_SPEED
+  )
+    return courseOverGround;
+}
+
+/**
+ * Move each sounding from the GNSS antenna to the transducer. The CSB format
+ * carries no heading, so nobody downstream can apply the offset; a sounding
+ * that can't be corrected here is dropped rather than submitted as corrected.
+ */
 export function correctForSensorPosition(config: SensorConfig) {
   const { distance, bearing } = getOffsets(config);
 
-  return ({ heading, ...data }: BathymetryData) => {
-    // No heading data provided, or no position offset, so position can't be corrected
-    if (heading === undefined || !Number.isFinite(heading) || distance === 0)
-      return data;
+  return ({ heading, ...data }: BathymetryData): BathymetryData | null => {
+    if (distance === 0) return data;
+    if (!isFiniteNumber(heading)) return null;
 
     // Convert heading from radians to degrees, and adjust for the offset bearing
     const sensorBearing = ((heading * 180) / Math.PI + bearing) % 360;
@@ -44,6 +79,10 @@ export function correctForSensorPosition(config: SensorConfig) {
       ...corrected,
     };
   };
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 /** Get the offsets between the gnss and the sounder */
