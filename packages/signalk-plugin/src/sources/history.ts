@@ -15,6 +15,7 @@ import {
 import { Temporal } from "@js-temporal/polyfill";
 import { BATHY_EPOCH } from "../constants.js";
 import fetch from "../fetch.js";
+import { setTimeout as sleep } from "node:timers/promises";
 import { bowBearing } from "../streams/transforms.js";
 
 const HEADING = "navigation.headingTrue";
@@ -192,6 +193,46 @@ export async function createHistorySource(
     createReader,
     getAvailableTimeframes,
   };
+}
+
+export interface WaitOptions {
+  timeout: Temporal.Duration;
+  interval?: Temporal.Duration;
+  signal?: AbortSignal;
+}
+
+/**
+ * Keeps looking for a history source until one appears or the timeout passes.
+ * Plugins start in no particular order, and a provider registers only once its
+ * plugin is up, so one that is missing at startup may just not be ready yet.
+ */
+export async function waitForHistorySource(
+  find: () => Promise<BathymetrySource | undefined>,
+  {
+    timeout,
+    interval = Temporal.Duration.from({ seconds: 5 }),
+    signal,
+  }: WaitOptions,
+): Promise<BathymetrySource | undefined> {
+  const deadline = Date.now() + timeout.total("milliseconds");
+  for (;;) {
+    if (signal?.aborted) return;
+    const source = await find();
+    if (source) return source;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return;
+    try {
+      await sleep(
+        Math.min(interval.total("milliseconds"), remaining),
+        undefined,
+        {
+          signal,
+        },
+      );
+    } catch {
+      return;
+    }
+  }
 }
 
 export interface HistorySourceOptions {

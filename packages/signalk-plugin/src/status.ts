@@ -6,6 +6,7 @@ export type Status = ReturnType<typeof createStatus>;
 export function createStatus(app: ServerAPI) {
   const state = {
     usingHistory: false,
+    waitingForHistory: false,
     collecting: false,
     lastReport: undefined as Temporal.Instant | undefined,
     nextReport: undefined as Temporal.Instant | undefined,
@@ -16,6 +17,7 @@ export function createStatus(app: ServerAPI) {
       [
         state.collecting && "Collecting bathymetry",
         state.usingHistory && "Using history",
+        state.waitingForHistory && "Waiting for a history provider",
         state.lastReport && `Checked through ${state.lastReport.toString()}`,
         state.nextReport && `Next report at ${state.nextReport.toString()}`,
       ]

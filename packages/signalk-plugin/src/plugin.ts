@@ -2,8 +2,9 @@ import { ServerAPI, Plugin } from "@signalk/server-api";
 import { schema, Config } from "./config.js";
 import { createReporter } from "./reporters/index.js";
 import { createSqliteSource } from "./sources/sqlite.js";
-import { ENV } from "./constants.js";
+import { BATHY_HISTORY_WAIT, ENV } from "./constants.js";
 import { createHistorySource } from "./sources/history.js";
+import { settleSource } from "./sources/settle.js";
 import { createDB } from "./storage.js";
 import { join } from "path";
 import { createCollector } from "./collector.js";
@@ -22,28 +23,29 @@ export default function createPlugin(app: ServerAPI): Plugin {
       app.debug("Starting (ENV=%s)", ENV);
       const status = createStatus(app);
 
-      abortController = new AbortController();
+      // A restart can replace abortController while this start still waits.
+      const controller = new AbortController();
+      abortController = controller;
       const db = createDB(join(app.getDataDirPath(), `bathymetry.sqlite`));
 
-      // Try to create history source.
-      let source = await createHistorySource(app, config);
-
-      if (source) {
-        status.set({ usingHistory: true });
-      } else {
-        // No history source, fallback to sqlite.
-        source = createSqliteSource(app, db);
-      }
-
-      if (source.createWriter) {
-        status.set({ collecting: true });
-        createCollector({
-          app,
-          config,
-          writer: source.createWriter(),
-          signal: abortController.signal,
-        });
-      }
+      const sqlite = createSqliteSource(app, db);
+      const source = await settleSource({
+        findHistory: () => createHistorySource(app, config),
+        sqlite,
+        record: (signal) =>
+          createCollector({
+            app,
+            config,
+            writer: sqlite.createWriter!(),
+            signal,
+          }).catch((err: unknown) => {
+            if (!signal.aborted) status.error(err as Error);
+          }),
+        status,
+        wait: BATHY_HISTORY_WAIT,
+        signal: controller.signal,
+      });
+      if (!source) return;
 
       createReporter({
         app,
@@ -51,7 +53,7 @@ export default function createPlugin(app: ServerAPI): Plugin {
         source,
         db,
         status,
-        signal: abortController.signal,
+        signal: controller.signal,
       });
     },
 
