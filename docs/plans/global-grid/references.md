@@ -1,0 +1,102 @@
+# References
+
+Primary sources, research and code behind the [global grid](README.md) plan. Links were checked on 2026-10-15, and software licenses and activity come from the GitHub API on the same day.
+
+## Standards
+
+- **IHO S-44, Standards for Hydrographic Surveys, Edition 6.2.0** (2024). [PDF](https://iho.int/uploads/user/pubs/standards/s-44/S-44_Edition_6.2.0_adopted.pdf). Survey orders and their vertical and horizontal uncertainty limits; Annex A classifies a crowdsourced example.
+- **IHO S-4, Regulations for International Charts, Edition 4.10.0** (2026). [PDF](https://iho.int/uploads/user/pubs/standards/s-4/S-4%20Ed%204.10.0_FINAL.pdf). Chart content rules: sounding selection and rounding, contours, the shoal-biased safety rule, unsurveyed and inadequately surveyed areas.
+- **IHO S-57 Use of the Object Catalogue, Edition 4.4.0**. [PDF](https://iho.int/uploads/user/pubs/standards/s-57/S-57%20Appendix%20B.1%20Annex%20A_Ed%204.4.0_FINAL.pdf). How ENCs encode `DEPARE`, `SOUNDG`, `M_QUAL`, `UNSARE` and incomplete surveys.
+- **IHO S-101 Data Classification and Encoding Guide, Edition 2.0.0**. [Source on GitHub](<https://github.com/iho-ohi/S-101-Documentation-and-FC/blob/main/Documents%20(Main%20and%20DCEG)/S-101_Annex_A_DCEG_Ed_2.0.0_Final_Clean.docx>). Quality of Bathymetric Data and its attributes. No official PDF is published.
+- **IHO S-68, Guidelines for the Allocation of CATZOC, Edition 1.0.0** (2023). [PDF](https://iho.int/uploads/user/pubs/standards/S-68/S-68_Guidelines_Allocation_of_CATZOC_Ed_1.0.0.pdf). How survey uncertainty and coverage map to zones of confidence, including crowdsourced data. [Edition 1.1.0](https://iho.int/uploads/user/pubs/standards/S-68/S-68_Guidelines_for_Allocation_of_CATZOC_Ed_1.1.0.pdf) is also on the IHO server.
+- **IHO S-66, Facts about Electronic Charts and Carriage Requirements, Edition 2.0.0** (2024). [PDF](https://iho.int/uploads/user/pubs/standards/s-66/S-66%20Ed%202.0.0_Final.pdf). Mariner guidance on zones of confidence.
+- **IHO S-52, Specifications for Chart Content and Display Aspects of ECDIS, Edition 6.1.1** (2015). [PDF](https://iho.int/uploads/user/pubs/standards/s-52/S-52%20Edition%206.1.1%20-%20June%202015.pdf). The Presentation Library that defines portrayal is distributed by order.
+- **IHO S-102, Bathymetric Surface Product Specification, Edition 3.0.0** (2024). [Source on GitHub](https://github.com/iho-ohi/S-102-Product-Specification). Gridded bathymetry with uncertainty.
+- **IHO B-12, Guidance to Crowdsourced Bathymetry, Edition 3.0.0** (2022). [PDF](https://iho.int/uploads/user/pubs/bathy/B_12_CSB-Guidance_Document-Edition_3.0.0_Final.pdf). Collecting, formatting and submitting crowdsourced bathymetry to the DCDB.
+- **IHO DQWG-19, Proposal for Improving the Allocation of CATZOC Values of Crowdsourced Bathymetry Data** (2024). [PDF](https://iho.int/uploads/user/Services%20and%20Standards/DQWG/DQWG19/DQWG19_2024_05.4A_Presentation_Proposal_for_Improving_the_Allocation_of_CATZOC_Values_of_Crowdsourced_Bathymetry_Data.pdf). Recommends CATZOC D for crowdsourced data, with criteria for upgrades.
+
+The IHO site shows a cookie page to scripts, so these links may not resolve from command-line tools.
+
+## CSB data sources
+
+- **IHO Data Centre for Digital Bathymetry**, hosted by NOAA NCEI. [Landing page](https://www.ncei.noaa.gov/iho-data-centre-digital-bathymetry).
+- **NOAA CSB on AWS**. [Readme](https://noaa-dcdb-bathymetry-pds.s3.amazonaws.com/docs/readme.html). The public `noaa-dcdb-bathymetry-pds` bucket.
+- **CSB track index**. [ArcGIS MapServer layer 1](https://gis.ngdc.noaa.gov/arcgis/rest/services/csb/MapServer/1). One simplified line per submission, with provider, platform, size and arrival date.
+- **Campbell and Cain, The DCDB CSB Archive**. [Slides](https://csbtools.ccom.unh.edu/assets/presentations/P4_CampbellCain_DCDBArchive.pdf). Metadata schemas, validation, simplification, reprocessing, and the index and metadata services.
+- **NOAA Coast Survey, CSB beta test** (2016). [Page](https://nauticalcharts.noaa.gov/updates/beta-test-csb/). How Coast Survey uses crowdsourced data: to guide resurveys and check charts, not to change charted features on its own.
+- **CSB GeoJSON schema 3.1**. [Local copy](../../CSB-schema-3_1_0-2024-04.json), with the [IHO submission guidance](<../../GuidanceforSubmittingCSBDataToTheIHODCDB (1).pdf>) and [sample formats](../../SampleCSBFileFormats.pdf).
+
+## Research on crowdsourced bathymetry
+
+- **Calder 2021**, Estimating Observer and Data Reputation in Mariner-volunteered Bathymetry, _International Hydrographic Review_. [Full text](https://ihr.iho.int/articles/estimating-observer-and-data-reputation-in-mariner-volunteered-bathymetry/). Reputation per observer and a time series of vertical bias, tested on DCDB data against NOAA surveys. The basis for vessel reputation in the plan.
+- **Calder and Hoy 2020**, Estimating Crowdsourced, Authoritative Observer, and Data Reputation, Canadian Hydrographic Conference. [Record](https://scholars.unh.edu/ccom/1610). A rating model whose confidence decays with time between comparisons.
+- **Hoy and Calder 2019**, The Viability of Crowdsourced Bathymetry for Authoritative Use, U.S. Hydro. [Record](https://scholars.unh.edu/ccom/1739). Crowdsourced data doesn't meet charting standards; its best uses are prioritizing surveys and detecting change.
+- **Calder, Dijkstra, Hoy, Himschoot and Schofield 2020**, A Design for a Trusted Community Bathymetry System, _Marine Geodesy_ 43(4). [Record](https://scholars.unh.edu/ccom/1602), DOI [10.1080/01490419.2020.1718255](https://doi.org/10.1080/01490419.2020.1718255). A low-cost GNSS logger that auto-calibrates transducer offset and meets Order 1b.
+- **Rondeau 2025**, Calibration and Correction of CSB Data, Canadian Hydrographic Service, IHO CSBWG16. [Slides](https://csbtools.ccom.unh.edu/assets/presentations/P2_Rondeau_CalibrationCorrection.pdf). Vertical calibration on flat seabed, horizontal lever-arm calibration on features, and sound speed from the World Ocean Atlas.
+- **Masetti, Rondeau, Jimenez Baron et al. 2020**, Trusted Crowd-Sourced Bathymetry: From the Trusted Crowd to the Chart. [PDF](https://waves-vagues.dfo-mpo.gc.ca/Library/40963664.pdf). Defines a "trusted crowd" tier between basic crowd data and surveys.
+- **Ibekwute 2025**, Estimating the Vertical Offsets of a Crowd-Sourced Bathymetry System Using a Kalman Filter, University of New Brunswick thesis. [Record](https://unbscholar.lib.unb.ca/handle/1882/38284).
+- **Salaudeen 2023**, Assessing CSB Data Reliability, _Hydrographische Nachrichten_ 124. [PDF](https://dhyg.de/images/fachbeitraege/DOI_10.23784_HN124-03.pdf). Rose Point soundings in Delaware Bay gridded at 30 m against multibeam, with 95% within Order 2; reliability tracked sounding density.
+- **Novaczek, Devillers and Edinger 2019**, Generating Higher Resolution Regional Seafloor Maps from Crowd-sourced Bathymetry, _PLoS ONE_ 14(6). [Full text](https://pmc.ncbi.nlm.nih.gov/articles/PMC6557478/). Olex soundings kriged to 75 m; high correlation with surveys, but it says nothing about missed shoals.
+- **Grinker, Solomon and Hassin 2022**, Evaluation of a Crowd Sourced Bathymetric Approach, _International Hydrographic Review_ 28. [Article](https://journals.lib.unb.ca/index.php/ihr/article/view/33358).
+- **Debroisse 2023**, Towards Automation of Volunteered and Authoritative Bathymetric Data Comparisons, University of New Hampshire thesis. [Record](https://scholars.unh.edu/thesis/1701). Pairs DCDB data with the National Bathymetric Source and seeds reputation scores.
+- **Klemm and Krabiel 2023**, From Crowd to Chart, U.S. Hydro. [PDF](https://raw.githubusercontent.com/anthonyklemm/Crowdsourced_Bathy_Processing/main/Klemm_CSB_USHYDRO23.pdf). NOAA Office of Coast Survey's CSB processing: tide correction, vessel offsets against BlueTopo, outliers and gridding.
+
+## Gridding and compilation methods
+
+- **Calder and Mayer 2003**, Automatic Processing of High-rate, High-density Multibeam Echosounder Data (CUBE), _Geochemistry, Geophysics, Geosystems_ 4(6). [Record](https://scholars.unh.edu/ccom/110). Uncertainty-aware gridding with competing depth hypotheses. Built for dense multibeam; most sparse single-beam cells never form a hypothesis.
+- **Calder and Rice 2011**, Design and Implementation of an Extensible Variable Resolution Bathymetric Estimator (CHRT), U.S. Hydro. [Record](https://scholars.unh.edu/ccom/841). Cell size adapts to data density; the model for the plan's variable resolution.
+- **Peters, Ledoux and Meijers 2014**, A Voronoi-Based Approach to Generating Depth-Contours for Hydrographic Charts, _Marine Geodesy_ 37(2). [Author copy](https://3d.bk.tudelft.nl/hledoux/pdfs/14_marinegeo.pdf), DOI [10.1080/01490419.2014.902882](https://doi.org/10.1080/01490419.2014.902882). Contours that only move toward deeper water, and why a per-cell minimum alone doesn't make safe contours.
+- **Guilbert and Zhang 2012**, Generalisation of Submarine Features on Nautical Charts, _ISPRS Annals_ I-2. [Article](https://isprs-annals.copernicus.org/articles/I-2/13/2012/). Shoals are kept or enlarged, never removed.
+- **Rice, Wyllie, Gallagher and Geleg 2023**, The National Bathymetric Source, OCEANS 2023. [PDF](https://nauticalcharts.noaa.gov/learn/docs/nbs/The_National_Bathymetric_Source.pdf). How NOAA combines heterogeneous surveys into BlueTopo.
+- **NOAA BlueTopo**. [Specifications](https://nauticalcharts.noaa.gov/data/bluetopo_specs.html), [FAQ](https://nauticalcharts.noaa.gov/data/bluetopo_faq.html). Depth, uncertainty and contributor bands, with a raster attribute table and a measured-or-interpolated flag. A model for the plan's COG output and a calibration reference in US waters.
+- **GEBCO_2024 Grid**. [Documentation](https://www.gebco.net/sites/default/files/documents/GEBCO_grid_2024.pdf), [grid and TID page](https://www.gebco.net/data-products-gridded-bathymetry-data/gebco2024-grid). Remove-restore merging of sparse regional grids, and the TID grid that records each cell's source type.
+- **EMODnet Bathymetry Quality Index 2024**. [PDF](https://emodnet.ec.europa.eu/sites/emodnet.ec.europa.eu/files/public/reports/EMODnet-Bathymetry_QualityIndex_2024-DTM-Shom-Jan2025.pdf). Horizontal, vertical and age quality indexes per dataset, used to rank overlapping sources.
+
+## Tides, datums and sound speed
+
+- **Hess, Schmalz, Zervas and Collier 1999 (revised 2004)**, Tidal Constituent and Residual Interpolation (TCARI), NOAA NOS CS 4. [Record](https://repository.library.noaa.gov/view/noaa/1689). Interpolates constituents, residuals and datums between gauges.
+- **FES2022**, AVISO. [Product page](https://www.aviso.altimetry.fr/en/data/products/auxiliary-products/global-tide-fes.html), [license](https://www.aviso.altimetry.fr/fileadmin/documents/data/License_Aviso.pdf), DOI [10.24400/527896/a01-2024.004](https://doi.org/10.24400/527896/a01-2024.004). Global tide heights, available for all uses after free registration.
+- **TPXO**. [Products and registration](https://www.tpxo.net/tpxo-products-and-registration). Free for academic and non-commercial use only; commercial use is licensed separately.
+- **TICON-4**, Hart-Davis, Dettmering and Seitz 2025. [Dataset](https://www.seanoe.org/data/00980/109129/), DOI [10.17882/109129](https://doi.org/10.17882/109129). Tidal constants from GESLA-4 gauge records; CC BY 4.0, though some upstream gauges restrict commercial use.
+- **Slackwater station database**. [Repository](https://github.com/openwatersio/slackwater-database). About 8,300 stations from NOAA and TICON-4, each with harmonic constituents, datums and a per-station license.
+- **World Ocean Atlas 2023**, NOAA NCEI. [Product page](https://www.ncei.noaa.gov/products/world-ocean-atlas). Temperature and salinity climatology for sound speed.
+
+## Commercial and community products
+
+- **Olex**. [Depth charts](https://olex.no/depthcharts_en.html). Shared depth database from fishing vessels; cells are marked measured, calculated or unknown.
+- **Garmin Quickdraw Contours**. [Manual](https://www8.garmin.com/manuals/webhelp/gpsmap1002-1202/EN-US/GUID-5169A77B-20F6-4F00-BC57-6C208F8BDF82.html). On-device contours with a data-quality indicator and visible gaps.
+- **Thornton 2011**, TeamSurv: Surveying with the Crowd, _Hydro International_. [Article](https://www.hydro-international.com/content/article/teamsurv-surveying-with-the-crowd). Tide from interpolated predictions plus observed residuals, and vessel calibration.
+
+## Software
+
+| Repository                                                                                                          | What it offers                                                                   | License | Last push  |
+| ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------- | ---------- |
+| [anthonyklemm/Crowdsourced_Bathy_Processing](https://github.com/anthonyklemm/Crowdsourced_Bathy_Processing)         | NOAA OCS CSB processing: zoned and FES tides, vessel offsets, outliers, gridding | CC0-1.0 | 2025-07-29 |
+| [anthonyklemm/csb_processing_pipeline](https://github.com/anthonyklemm/csb_processing_pipeline)                     | The same split into steps, with DuckDB loading and grid-to-survey differencing   | CC0-1.0 | 2025-07-01 |
+| [anthonyklemm/bathy_interpolation](https://github.com/anthonyklemm/bathy_interpolation)                             | Masks for enclosed holes between survey lines                                    | CC0-1.0 | 2025-07-15 |
+| [anthonyklemm/Bathy_edge_erosion](https://github.com/anthonyklemm/Bathy_edge_erosion)                               | Trims the fringe at coverage edges while keeping small holes                     | CC0-1.0 | 2024-02-01 |
+| [anthonyklemm/Raster_Outliner](https://github.com/anthonyklemm/Raster_Outliner)                                     | Coverage footprints from rasters                                                 | CC0-1.0 | 2023-12-01 |
+| [anthonyklemm/CSB_Zoned_Tides](https://github.com/anthonyklemm/CSB_Zoned_Tides)                                     | Earlier zoned tide correction; reimplement rather than copy                      | GPL-3.0 | 2021-01-14 |
+| [anthonyklemm/bluetopo-local-explorer](https://github.com/anthonyklemm/bluetopo-local-explorer)                     | Reading BlueTopo's depth, uncertainty and contributor bands; ideas only          | None    | 2026-01-23 |
+| [noaa-ocs-hydrography/bruty](https://github.com/noaa-ocs-hydrography/bruty)                                         | NOAA's supersession logic for combining surveys into BlueTopo                    | CC0-1.0 | 2026-09-14 |
+| [noaa-ocs-hydrography/noaabathymetry](https://github.com/noaa-ocs-hydrography/noaabathymetry)                       | Fetches BlueTopo tiles                                                           | CC0-1.0 | 2026-04-19 |
+| [noaa-ocs-hydrography/vyperdatum](https://github.com/noaa-ocs-hydrography/vyperdatum)                               | VDatum transformations through PROJ                                              | CC0-1.0 | 2026-06-10 |
+| [noaa-ocs-hydrography/interpolation_uncertainty](https://github.com/noaa-ocs-hydrography/interpolation_uncertainty) | Uncertainty for interpolated cells                                               | CC0-1.0 | 2025-07-18 |
+| [noaa-ocs-hydrography/kluster](https://github.com/noaa-ocs-hydrography/kluster)                                     | Multibeam processing                                                             | CC0-1.0 | 2026-03-31 |
+| [noaa-ocs-hydrography/bathycube](https://github.com/noaa-ocs-hydrography/bathycube)                                 | CUBE in Python                                                                   | MIT     | 2022-04-08 |
+| [YanBilodeau/CHS-CSB-Processing](https://github.com/YanBilodeau/CHS-CSB-Processing)                                 | Canadian Hydrographic Service CSB calibration and correction                     | MIT     | 2026-07-08 |
+| [lhzn-io/csb-census](https://github.com/lhzn-io/csb-census)                                                         | DCDB duplicates and coverage                                                     | MIT     | 2026-10-12 |
+| [CI-CMG/csb-validator](https://github.com/CI-CMG/csb-validator)                                                     | Validates CSB submissions                                                        | MIT     | 2026-03-02 |
+| [glabmoris/csb](https://github.com/glabmoris/csb)                                                                   | Georeferencing and uncertainty propagation for CSB                               | MIT     | 2024-10-05 |
+| [CNES/aviso-fes](https://github.com/CNES/aviso-fes)                                                                 | FES tide prediction (PyFES)                                                      | BSD-3   | 2026-10-06 |
+| [pyTMD/pyTMD](https://github.com/pyTMD/pyTMD)                                                                       | Tide models in Python: FES, TPXO, GOT                                            | MIT     | 2026-10-15 |
+| [openwatersio/crowd-depth#127](https://github.com/openwatersio/crowd-depth/pull/127)                                | Per-region MBTiles with S-57 layers and the bracketed hole-filling rule          | MIT     | 2026-10-13 |
+
+## Storage and tiles
+
+- **DuckLake**. [1.0 announcement](https://ducklake.select/2026/04/13/ducklake-10/), [documentation](https://ducklake.select/docs/stable/), [repository](https://github.com/duckdb/ducklake) (MIT).
+- **DuckDB and Cloudflare R2**. [Guide](https://duckdb.org/docs/current/guides/network_cloud_storage/cloudflare_r2_import.html).
+- **Cloudflare R2**. [Consistency model](https://developers.cloudflare.com/r2/reference/consistency/), [limits](https://developers.cloudflare.com/r2/platform/limits/).
+- **GeoParquet 1.1.0**. [Specification](https://geoparquet.org/releases/v1.1.0/).
+- **PMTiles**. [Documentation](https://docs.protomaps.com/pmtiles/), [repository](https://github.com/protomaps/PMTiles).
+- **tippecanoe**. [Repository](https://github.com/felt/tippecanoe) (BSD-2-Clause).
