@@ -25,6 +25,7 @@ These follow from the standards and research in [standards.md](standards.md) and
 - **Never deeper than measured.** Every rounding, aggregation, rejection and generalization step errs shallow. This is the safety rule in IHO S-4 for charts, and Seascape applies it too. Corrections are the one stated exception: they aim at the true depth, so a correction can make a sounding deeper, but only when its parameters are known, never from an assumed value, and its uncertainty widens the sounding's.
 - **No interpolation between tracks.** Water between tracks is unsurveyed, as S-4 treats passage soundings. Published comparisons of interpolation methods measure overall error, not missed shoals, so nothing shows that interpolating sparse tracks is safe.
 - **Crowd data is CATZOC D until shown otherwise.** This is the IHO Data Quality Working Group's recommendation for crowdsourced bathymetry. Upgrades need evidence: corrections applied, independent vessels agreeing, validation against surveys.
+- **Metadata is a hint, not a fact.** A submission's depth reference, offsets and sensor positions are whatever the vessel's software and owner set, and they can be wrong without anything looking wrong. Every source is calibrated from its soundings, and reported metadata is at most a starting estimate.
 - **Raw data is never overwritten.** Corrections, QC and calibration are derived tables that can be rebuilt as methods improve.
 
 ## Inputs
@@ -34,7 +35,7 @@ These follow from the standards and research in [standards.md](standards.md) and
 | `noaa`       | CSV point data in `s3://noaa-dcdb-bathymetry-pds/csb/csv/`, one file per submission, discovered by listing the bucket | About 784k files since 2017 and roughly 2 billion soundings, growing by about 750 MB of CSV a day |
 | `openwaters` | GeoJSON submissions stored in R2 by the [API](../../../packages/api), with CSB 3.1 metadata                           | Smaller, but includes waters of non-IHO-member states, which NOAA does not publish                |
 
-Plugin submissions reach NOAA too when they are in IHO member waters, so the two sources overlap. NOAA's copy is simplified, and its metadata is only available through a separate API, so the `openwaters` copy is the better one. How far the plugin's own metadata can be trusted depends on the plugin version that sent it; see [Open Waters data](#open-waters-data). See [noaa-archive.md](noaa-archive.md) for both sources' layouts and quirks.
+Plugin submissions reach NOAA too when they are in IHO member waters, so the two sources overlap. NOAA's copy is simplified, and its metadata is only available through a separate API, so the `openwaters` copy is the better one. Its metadata is still only a hint; see [Open Waters data](#open-waters-data). See [noaa-archive.md](noaa-archive.md) for both sources' layouts and quirks.
 
 ## Pipeline
 
@@ -118,7 +119,7 @@ QC writes flags to `qc_flags` and never deletes points.
 
 #### Vessel calibration
 
-A vessel's soundings differ from the truth by its transducer depth below the waterline, any offset its logger already applied, and the sound speed its sounder assumes. Open Waters submissions say what their depths are measured from: `Waterline` depths already include the configured offset, `Transducer` depths need the transducer's depth below the waterline, and `Unknown` depths may be below the keel. The sensor positions in their metadata are relative to the transducer, the plugin's position reference, so the sounder's is always zero and its depth below the waterline isn't recorded there. The sounder's `draft` carries the vessel's configured draft when one is set. Calibration compares tide-corrected soundings with a trusted reference where both exist:
+A vessel's soundings differ from the truth by its transducer depth below the waterline, any offset its logger already applied, and the sound speed its sounder assumes. None of these can be taken from metadata: a submission's stated depth reference and offsets are only as good as the vessel's configuration, so they set a starting estimate and the fit against a reference decides. Calibration compares tide-corrected soundings with a trusted reference where both exist:
 
 - References are surveyed sources only: BlueTopo and S-102 in US waters, and Seascape's surveyed sources (CUDEM, EMODnet, INFOMAR, and others) elsewhere. GEBCO is too coarse and is never a reference.
 - Fit on flat, stable seabed, where a small position error doesn't change depth, using low reference uncertainty and shallow-to-moderate depths (the NOAA tool uses reference uncertainty under 3 to 4 m, reference depth under 20 m, and differences under 12 m).
@@ -126,7 +127,7 @@ A vessel's soundings differ from the truth by its transducer depth below the wat
 - Use robust statistics (median and MAD), require a minimum number of soundings across more than one transit, and reject offsets outside a plausible range.
 - Treat calibration as a time series, not one value per vessel. Sounders are moved and replaced. Each vessel carries a reputation that rises with agreement and decays with time since its last comparison, following Calder's work on observer reputation. Reputation weights the vessel's soundings when cells are combined.
 
-A vessel that never overlaps a reference is used as reported and weighted low. A plugin vessel with `Transducer` or `Unknown` depths that can't be calibrated reads shallower than the truth, by its transducer depth or draft. That errs safe, but it skews agreement between vessels and calibration of others, so its soundings are marked uncorrected and weighted low.
+A vessel that never overlaps a reference is used with its reported metadata, marked uncalibrated and weighted low. A depth measured below the transducer or keel but treated as below the waterline reads shallower than the truth, which errs safe, but it skews agreement between vessels, which is why uncalibrated vessels count for little.
 
 #### Sound speed
 
@@ -221,7 +222,7 @@ Validation runs on every grid version, and its results decide whether a correcti
 
 The plugin's submissions carry richer metadata than NOAA's files, but how much of it can be trusted depends on when it was sent. These are preconditions for using it, and follow-ups outside this pipeline.
 
-- **Metadata is trustworthy only from the next plugin release.** The plugin reports the depth reference its soundings are actually measured from as of 07d227f (2026-10-13), which no release contains yet. Released versions up to 1.2.6, which the API still accepts, label every submission `Waterline`. Their History API path adds no offset, so a `belowKeel` or `belowTransducer` vessel logging through a history provider is labeled `Waterline` but reads shallow by its draft or transducer depth, and their sensor positions are the raw settings rather than offsets from the transducer. Files stored before 2026-01-14 have no CSB metadata at all. Ingest reads `providerLoggerVersion` and treats files from earlier versions like NOAA files: reference unknown, calibrated where possible and weighted low otherwise.
+- **The plugin's own metadata shows why metadata can't be trusted.** Released versions up to 1.2.6, which the API still accepts, label every submission `Waterline`. They prefer depth below the surface when the boat provides it, so many of those labels are right, but a vessel logging `belowKeel` or `belowTransducer` through a history provider is labeled `Waterline` with no offset added, and its sensor positions are the raw settings rather than offsets from the transducer. Later versions report the reference more carefully (07d227f), but still only from the owner's settings. Files stored before 2026-01-14 have no CSB metadata at all. Ingest stores the metadata and the `providerLoggerVersion` that produced it, and calibration treats both as a starting estimate, the same as for any other source.
 - **The API should check the vessel id in the body.** It verifies the id in the form metadata against the vessel's token, but stores and forwards the GeoJSON body unchecked. Ingest takes identity from the R2 key, but a body naming another vessel still reaches NOAA's archive and comes back as a `noaa` file under that vessel's id. The API should reject a body whose ids disagree with the authenticated vessel, before storing or forwarding it.
 - **Removing a vessel means suppressing both sources.** Deleting a vessel's R2 files would let rule 5 stop suppressing its NOAA copies, which would then be published. A request to remove a contributor's data is handled by vessel id across both sources, built when the first request arrives.
 
