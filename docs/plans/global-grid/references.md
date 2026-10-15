@@ -90,6 +90,8 @@ The IHO site shows a cookie page to scripts, so these links may not resolve from
 | [glabmoris/csb](https://github.com/glabmoris/csb)                                                                   | Georeferencing and uncertainty propagation for CSB                               | MIT     | 2024-10-05 |
 | [CNES/aviso-fes](https://github.com/CNES/aviso-fes)                                                                 | FES tide prediction (PyFES)                                                      | BSD-3   | 2026-10-06 |
 | [pyTMD/pyTMD](https://github.com/pyTMD/pyTMD)                                                                       | Tide models in Python: FES, TPXO, GOT                                            | MIT     | 2026-10-15 |
+| [dirkwa/signalk-charts-provider-simple](https://github.com/dirkwa/signalk-charts-provider-simple)                   | Signal K chart provider; serves and extracts charts for offline use              | MIT     | 2026-10-14 |
+| [dirkwa/crowd-depth `feat-csb-tides`](https://github.com/dirkwa/crowd-depth/tree/feat-csb-tides)                    | Prototype LAT reduction of CSB soundings with Slackwater                         | MIT     | 2026-10-13 |
 | [openwatersio/crowd-depth#127](https://github.com/openwatersio/crowd-depth/pull/127)                                | Per-region MBTiles with S-57 layers and the bracketed hole-filling rule          | MIT     | 2026-10-13 |
 
 ## Storage and tiles

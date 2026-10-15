@@ -138,7 +138,7 @@ Recreational sounders assume a fixed sound speed, often 1,500 m/s. The real spee
 Reduce each sounding by the water level at its time and place.
 
 - US waters: NOAA's discrete tide zones, which give each zone a control station, a time offset and a range ratio, so the correction is `depth − ratio × level(time − offset)`. Station levels come from CO-OPS, falling back from observed 6-minute data to 6-minute predictions to interpolated high and low predictions. Series are fetched once per station and day and cached, and each sounding is interpolated at its own time with a tolerance. TCARI, which interpolates constituents and residuals between gauges, is more accurate where gauges are dense and is a later improvement.
-- Near other coasts: harmonic predictions from the [Slackwater station database](https://github.com/openwatersio/slackwater-database), about 8,300 stations from NOAA and TICON-4. Stations licensed for non-commercial use only (about 700) are filtered out by their `license.commercial_use` field when stations are loaded, so the published grid stays openly licensed.
+- Near other coasts: harmonic predictions from the [Slackwater station database](https://github.com/openwatersio/slackwater-database), about 8,300 stations from NOAA and TICON-4. Stations licensed for non-commercial use only (about 700) are filtered out by their `license.commercial_use` field when stations are loaded, so the published grid stays openly licensed. A prototype on [#127](https://github.com/openwatersio/crowd-depth/pull/127) (`feat-csb-tides` on Dirk Wahrheit's fork) reduced 57% of Fiji's soundings to LAT this way, from the nearest station within 50 km, with a median correction of 1.2 m (0.5 to 2.0). It used the Slackwater engine that the signalk-tides plugin runs, so a boat sees the same water level the tiles were reduced with. The pipeline keeps that consistency by calling the Slackwater engine for predictions, or by testing any Python implementation against it, rather than running a second predictor that can drift from it.
 - Offshore: FES2022 through pyTMD or PyFES, once the AVISO license text is confirmed to allow publishing grids corrected with it. AVISO describes the heights as available for all uses after free registration. TPXO is left out because it is licensed for non-commercial use only.
 
 Each tide correction carries an uncertainty that grows with distance from its station or with the model's known error, and feeds the sounding's vertical uncertainty.
@@ -202,7 +202,13 @@ One global PMTiles archive, built so a plotter that styles ENCs portrays it the 
 - `DEPCNT`: band edges, flagged as approximate so styles can dash them.
 - `M_QUAL`: coverage polygons that never overlap, with CATZOC, survey date range, vertical and horizontal uncertainty, sounding and vessel counts, technique, and a note that the data is crowdsourced and unverified.
 
-Offline regions are cut from the global archive with `pmtiles extract`.
+The archive is the contract with chart plotters and chart providers:
+
+- One global archive at a URL that doesn't change between builds, with its TileJSON beside it.
+- Metadata with `type=S-57`, which Freeboard needs before it applies S-52 styling to a vector chart, and a build version and date, so a client can tell when an extract is out of date.
+- Each build replaces the archive at the same URL. Clients reading by range send the ETag they started with, as the PMTiles libraries do, so a build that lands mid-read is detected and the read restarts instead of mixing tiles from two builds.
+
+Offline regions are cut from the global archive by range requests, with `pmtiles extract` or a chart provider doing the same.
 
 #### Seascape source
 
@@ -232,7 +238,10 @@ Files removed from NOAA or deleted from R2 leave every product through `files`, 
 
 ## Plugin as a consumer
 
-- Offline overlay extracts for the area around the boat.
+Offline charts belong to chart providers, not the crowd-depth plugin. [signalk-charts-provider-simple](https://github.com/dirkwa/signalk-charts-provider-simple) is adding PMTiles support, so it can serve the overlay directly and cut an extract for a box the user draws, the way it handles NOAA ENCs, and use the build version to tell the user when the extract is out of date.
+
+The crowd-depth plugin's part is feedback to the contributor:
+
 - The vessel's own fitted offsets and reputation, shown in the plugin's status, which tells a contributor whether their setup reads true and gives them a reason to keep sharing.
 
 ## Package
@@ -250,7 +259,7 @@ CI gets a separate job for it, filtered to changes under `packages/grid`, so plu
 - [ ] Corrections: vessel calibration with reputation, sound speed, tide, chart datum, and confidence upgrades backed by validation.
 - [ ] Public overlay: published and listed once tide and datum corrections and validation are in place.
 - [ ] Seascape source: COG output and remove-restore merging in Seascape.
-- [ ] Plugin: offline extracts and calibration feedback.
+- [ ] Plugin: calibration feedback.
 
 ## Open questions
 
