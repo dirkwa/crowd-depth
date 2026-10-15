@@ -1,0 +1,10 @@
+{
+  "name": "e2e-history-provider",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A History API provider for the end-to-end test, answering with canned soundings.",
+  "keywords": [
+    "signalk-node-server-plugin"
+  ],
+  "main": "index.cjs"
+}

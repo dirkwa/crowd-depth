@@ -1,7 +1,9 @@
 name: CI
 
 on:
-  push: {}
+  pull_request:
+  push:
+    branches: [main]
 
 jobs:
   lint:
@@ -51,3 +53,33 @@ jobs:
 
       - name: Check the published package
         run: npm pack --dry-run -w crowd-depth
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: mise.toml
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      # Installed outside the workspace so the server and its dependencies stay
+      # out of package-lock.json.
+      - name: Install signalk-server
+        run: npm install --prefix "$RUNNER_TEMP/signalk" --no-save --no-audit --no-fund signalk-server@2.33.0
+
+      - name: Run end-to-end tests
+        env:
+          SIGNALK_SERVER_DIR: ${{ runner.temp }}/signalk/node_modules/signalk-server
+        run: npm run test:e2e

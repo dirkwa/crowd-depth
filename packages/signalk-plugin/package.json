@@ -46,7 +46,8 @@
     "dev": "tsc -w",
     "prepack": "npm run build",
     "lint": "tsc -b && publint --strict",
-    "test": "vitest"
+    "test": "vitest",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "engines": {
     "node": ">=24"
