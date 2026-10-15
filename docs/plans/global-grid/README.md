@@ -91,7 +91,7 @@ Dedupe works on files:
 2. A file replaced in place supersedes its old version entirely, so points dropped by reprocessing disappear with it.
 3. A file removed from its source is marked withdrawn, and its points leave every product on the next build.
 4. Within a source, a newer file from the same vessel supersedes an older one only when it holds every sounding of the older file, matched by time and position. A retry or a corrected resubmission covering the same soundings wins. Otherwise both stay, and soundings identical in time, position and depth are counted once. A wider time range alone never supersedes, because a newer file can have gaps or coarser thinning.
-5. Across sources, `openwaters` wins over `noaa` for the same vessel and overlapping time range.
+5. Across sources, precedence applies per sounding, not per file. A `noaa` sounding from the same vessel that falls inside the time span of an active `openwaters` file is dropped as a duplicate, since NOAA's copy is a simplified version of the same upload. `noaa` soundings outside that span are kept, even when they come from a file that partly overlaps.
 
 A plugin vessel's identity comes from the R2 key, which the API builds from the vessel's authenticated token. The ids inside the GeoJSON body are not checked by the API, so they are never trusted for identity, and a file whose body id disagrees with its key is marked `invalid`.
 
@@ -224,7 +224,7 @@ The plugin's submissions carry richer metadata than NOAA's files, but how much o
 
 - **The plugin's own metadata shows why metadata can't be trusted.** Released versions up to 1.2.6, which the API still accepts, label every submission `Waterline`. They prefer depth below the surface when the boat provides it, so many of those labels are right, but a vessel logging `belowKeel` or `belowTransducer` through a history provider is labeled `Waterline` with no offset added, and its sensor positions are the raw settings rather than offsets from the transducer. Later versions report the reference more carefully (07d227f), but still only from the owner's settings. Files stored before 2026-01-14 have no CSB metadata at all. Ingest stores the metadata and the `providerLoggerVersion` that produced it, and calibration treats both as a starting estimate, the same as for any other source.
 - **The API should check the vessel id in the body.** It verifies the id in the form metadata against the vessel's token, but stores and forwards the GeoJSON body unchecked. Ingest takes identity from the R2 key, but a body naming another vessel still reaches NOAA's archive and comes back as a `noaa` file under that vessel's id. The API should reject a body whose ids disagree with the authenticated vessel, before storing or forwarding it.
-- **Removing a vessel means suppressing both sources.** Deleting a vessel's R2 files would let rule 5 stop suppressing its NOAA copies, which would then be published. A request to remove a contributor's data is handled by vessel id across both sources, built when the first request arrives.
+- **Removing a vessel means suppressing both sources.** Deleting a vessel's R2 files would end rule 5's suppression of the matching NOAA soundings, which would then be published. A request to remove a contributor's data is handled by vessel id across both sources, built when the first request arrives.
 
 ## Removing data
 
