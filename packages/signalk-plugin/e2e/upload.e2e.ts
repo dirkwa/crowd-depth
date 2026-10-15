@@ -12,16 +12,22 @@ import type { Config } from "../src/config.js";
 
 /**
  * Runs the built plugin inside a real Signal K server and checks what it
- * uploads to a stand-in trusted node: that the server can load the package,
+ * uploads to a stand-in trusted node: that the server can load the plugin,
  * that soundings reach it through the real delta and History API paths, and
  * that the submission is valid CSB with the depth reference it claims.
  *
  * Needs a signalk-server install: point SIGNALK_SERVER_DIR at its package
- * directory (e.g. node_modules/signalk-server). Skipped without one.
+ * directory (e.g. node_modules/signalk-server). Skipped without one, except
+ * under CI.
  */
 const SERVER_DIR = process.env.SIGNALK_SERVER_DIR;
 const PLUGIN_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const HISTORY_PROVIDER = join(PLUGIN_DIR, "e2e/fixtures/history-provider");
+
+function serverDir() {
+  if (!SERVER_DIR) throw new Error("SIGNALK_SERVER_DIR is not set");
+  return SERVER_DIR;
+}
 
 // Transducer 0.5 m below the waterline; the depth path is below the transducer.
 const config: Config = {
@@ -175,7 +181,7 @@ async function startSignalK({
   const port = await freePort();
   const child: ChildProcess = spawn(
     process.execPath,
-    [join(SERVER_DIR!, "bin", "signalk-server")],
+    [join(serverDir(), "bin", "signalk-server")],
     {
       env: {
         ...process.env,
@@ -185,8 +191,9 @@ async function startSignalK({
         // Report every few seconds rather than every six hours.
         BATHY_DEFAULT_SCHEDULE: "*/3 * * * * *",
         E2E_HISTORY: JSON.stringify(historyRows ?? []),
-        // Don't wait long for a history provider in tests that have none.
-        BATHY_HISTORY_WAIT: "2",
+        // Don't wait long for a history provider in tests that have none, and
+        // give one that registers after the plugin starts time to be found.
+        BATHY_HISTORY_WAIT: historyRows ? "20" : "2",
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -276,7 +283,21 @@ function expectValidCsb(upload: Upload) {
   expect(validate(upload), JSON.stringify(validate.errors, null, 2)).toBe(true);
 }
 
-describe.skipIf(!SERVER_DIR)("uploads from a real Signal K server", () => {
+// The bow points east, so the transducer, 6 m forward of the antenna, sits 6 m
+// east of each fix.
+const HEADING = Math.PI / 2;
+const TRANSDUCER_LONGITUDE = 177.4300566;
+
+function expectAtTransducer(features: Upload["features"]) {
+  for (const f of features) {
+    expect(f.geometry.coordinates[0]).toBeCloseTo(TRANSDUCER_LONGITUDE, 6);
+  }
+}
+
+// CI always runs the suite, so a missing server fails rather than skips it.
+const RUN = SERVER_DIR || process.env.CI;
+
+describe.skipIf(!RUN)("uploads from a real Signal K server", () => {
   test("live soundings arrive measured from the waterline", async () => {
     const node = await startTrustedNode();
     const sk = await startSignalK({
@@ -295,15 +316,18 @@ describe.skipIf(!SERVER_DIR)("uploads from a real Signal K server", () => {
       updates: [
         {
           source: { label: "e2e" },
-          timestamp: new Date().toISOString(),
+          // No timestamp: the server stamps each delta as it arrives. One
+          // stamped before it's sent could predate a report that ran while it
+          // was in flight, and that report's successor would skip it.
           values,
         },
       ],
     });
-    // A depth is only kept with a fresh position fix, so the GPS speaks first,
-    // as it would on board.
+    // A depth is only kept with a fresh position fix and heading, which moves
+    // it from the antenna to the transducer, so those speak first, as they
+    // would on board.
     await sk.sendDeltas([
-      update([fix(0)]),
+      update([fix(0), { path: "navigation.headingTrue", value: HEADING }]),
       ...[3.2, 3.4, 3.6].map((depth, i) =>
         update([
           fix(i),
@@ -323,6 +347,7 @@ describe.skipIf(!SERVER_DIR)("uploads from a real Signal K server", () => {
     expect(
       uploads.flatMap((u) => u.features.map((f) => f.properties.depth)),
     ).toEqual([3.7, 3.9, 4.1]);
+    expectAtTransducer(uploads.flatMap((u) => u.features));
   });
 
   test("soundings read through the History API arrive measured from the waterline", async () => {
@@ -332,12 +357,13 @@ describe.skipIf(!SERVER_DIR)("uploads from a real Signal K server", () => {
       time: new Date(start + i * 1000).toISOString(),
       latitude: -17.6 + i * 1e-4,
       longitude: 177.43,
+      heading: HEADING,
       depth,
     }));
     const sk = await startSignalK({
       trustedNodeUrl: node.url,
-      // The plugin picks its source when it starts, so it starts only once
-      // the history provider has registered.
+      // Enabled after boot, so the history provider has usually registered and
+      // the plugin uses it from the start rather than waiting for it.
       enableAtBoot: false,
       historyRows: rows,
     });
@@ -351,5 +377,10 @@ describe.skipIf(!SERVER_DIR)("uploads from a real Signal K server", () => {
     expect(upload.features.map((f) => f.properties.depth)).toEqual([
       3.7, 3.9, 4.1,
     ]);
+    expectAtTransducer(upload.features);
+
+    // Nothing more follows: the next report finds no new soundings.
+    await new Promise((r) => setTimeout(r, 4000));
+    expect(node.uploads).toEqual([]);
   });
 });
