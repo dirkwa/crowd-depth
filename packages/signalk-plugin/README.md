@@ -89,11 +89,17 @@ the IHO data collection service under CC0.
 
 ## For developers
 
-- Data is reported daily at midnight local time; set a cron-style schedule in
-  the `BATHY_DEFAULT_SCHEDULE` environment variable to change it.
+- Data is reported every 6 hours, at midnight, 06:00, noon and 18:00 local
+  time; set a cron-style schedule in the `BATHY_DEFAULT_SCHEDULE` environment
+  variable to change it.
 - `BATHY_HISTORY_WAIT` sets how many seconds to wait at startup for a History
   API provider (default 600).
-- Reports go to `BATHY_URL` (production: `https://depth.openwaters.io`,
+- `BATHY_REPORT_DELAY` sets how many seconds behind now each report ends, so
+  soundings still on their way to storage go in the next report (default 300).
+  Soundings that reach storage later than this after their timestamp are not
+  reported. The default covers signalk-to-influxdb2's default write buffering
+  and retries; raise it if you raise those.
+- Reports go to `BATHY_URL` (production: `https://api.openwaters.io/bathymetry`,
   otherwise `http://localhost:3001`).
 - A helper CLI `xyz-to-geojson` (installed with the package) converts XYZ
   files to GeoJSON.

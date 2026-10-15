@@ -75,7 +75,7 @@ export function createSqliteReader(
 
   const { count } = db
     .prepare(
-      `SELECT count(*) as count FROM bathymetry WHERE timestamp >= :from AND timestamp <= :to`,
+      `SELECT count(*) as count FROM bathymetry WHERE timestamp >= :from AND timestamp < :to`,
     )
     .get({
       from: from.epochMilliseconds,
@@ -93,7 +93,7 @@ export function createSqliteReader(
       try {
         query = db.prepare(`
           SELECT * FROM bathymetry
-          WHERE timestamp >= :from AND timestamp <= :to
+          WHERE timestamp >= :from AND timestamp < :to
           ORDER BY timestamp
           LIMIT :limit OFFSET :offset
         `);
