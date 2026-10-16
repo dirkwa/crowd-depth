@@ -86,10 +86,8 @@ take a few minutes to measure them. Where your vessel already reports
   under a randomly generated UUID instead.
 
 By enabling the plugin, you agree to share your soundings and your vessel and
-sensor details with Open Waters and the IHO Data Centre for Digital Bathymetry,
-and you dedicate them to the public domain under [CC0 1.0
-Universal](https://creativecommons.org/publicdomain/zero/1.0/). Anyone,
-including Open Waters, may use, publish and build products from them.
+sensor details, and you dedicate them to the public domain under [CC0 1.0
+Universal](https://creativecommons.org/publicdomain/zero/1.0/).
 
 ## For developers
 
