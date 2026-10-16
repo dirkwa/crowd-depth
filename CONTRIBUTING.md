@@ -76,6 +76,8 @@ npm run test
 npm pack --dry-run -w crowd-depth
 ```
 
+It also runs the end-to-end suite (below) and boots the API Worker under `wrangler dev` with production settings, failing if it crashes at startup.
+
 ### Working on the plugin
 
 ```sh
